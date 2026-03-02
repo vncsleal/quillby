@@ -1,0 +1,50 @@
+{
+  "name": "grist",
+  "version": "0.1",
+  "description": "GRIST — Guided Research & Insight Synthesis Tool. Reads the internet and writes content in your voice.",
+  "license": "MIT",
+  "author": "Vinicius Leal",
+  "keywords": [
+    "rss",
+    "openai",
+    "content",
+    "research",
+    "agent",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "run": "tsx src/index.ts harvest",
+    "harvest": "tsx src/index.ts harvest",
+    "compose": "tsx src/index.ts compose",
+    "board": "tsx src/index.ts board",
+    "init": "tsx src/index.ts init",
+    "help": "tsx src/index.ts help",
+    "run:log": "tsx src/index.ts 2>&1 | tee /tmp/grist.log",
+    "run:clean": "npm run clear-cache && tsx src/index.ts harvest",
+    "clean": "rm -rf .cache dist pipeline_*.log pipeline_run.log output.txt output.md",
+    "clean:all": "npm run clean && rm -rf output costs",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clear-cache": "rm -rf .cache && echo 'Cache cleared'",
+    "test": "echo 'tests pending'"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "dotenv": "^16.4.5",
+    "openai": "^4.52.0",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "tsx": "^4.7.2",
+    "typescript": "^5.3.3"
+  }
+}
