@@ -5,7 +5,7 @@ dist/
 .env.local
 .env.*.local
 .cache/
-output/
+/output/
 costs/
 config/context.md
 config/rss_sources.txt
