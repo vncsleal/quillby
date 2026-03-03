@@ -159,9 +159,10 @@ async function personalizePrompt(name: string, basePrompt: string, context: stri
     "Keep all technical constraints intact.",
     "Aggressively incorporate the user's voice patterns, banned words, signature phrases, and sentence rhythms.",
     "VOICE ONLY — Oversteer on tone and writing style: push hard, the model will self-moderate.",
-    "The goal is that output sounds like this specific user wrote it, not a generic senior developer.",
+    "The goal is that output sounds like this specific person wrote it — they may be a developer, designer, lawyer, engineer, or anything else.",
     "FACTUAL AREAS — Be strictly literal. Do NOT add, infer, or upgrade stack, topics, or interests beyond what the context explicitly states.",
-    "Boost signals only for what the user actually mentioned — never add adjacent technologies or tangential interests.",
+    "Any 'boost' or 'add-on' signal examples in the base prompt are PLACEHOLDERS. Replace them entirely with examples derived from the user's actual stack and content themes.",
+    "If the user's domain has nothing to do with the placeholder examples (e.g. they are not a developer), remove those sections or rewrite them to fit their actual domain.",
   ].join("\n");
 
   const userMessage = [
