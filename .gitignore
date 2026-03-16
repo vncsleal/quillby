@@ -9,7 +9,6 @@ dist/
 costs/
 config/context.md
 config/rss_sources.txt
-config/prompts/*.local.txt
 .DS_Store
 *.log
 *.pid
@@ -21,5 +20,6 @@ yarn-error.log*
 .next
 .vercel
 .idea/
-.vscode/
+.vscode/*
+!.vscode/mcp.json
 coverage/

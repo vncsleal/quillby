@@ -1,6 +1,0 @@
-# Copy this file to config/rss_sources.txt and customize with your own feeds.
-# One RSS/Atom URL per line.
-
-https://hnrss.org/frontpage
-https://feeds.feedburner.com/oreilly/radar
-https://github.blog/feed/

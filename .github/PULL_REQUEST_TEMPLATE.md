@@ -7,7 +7,7 @@ What does this PR change and why?
 - [ ] Scope is focused and minimal
 - [ ] Docs updated if behavior changed
 - [ ] No secrets or generated outputs committed
-- [ ] `npm run typecheck` passes
+- [ ] `tsc --noEmit` passes
 
 ## Validation
 

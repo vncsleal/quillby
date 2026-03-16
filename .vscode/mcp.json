@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "grist": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/bin/grist-mcp",
+      "args": []
+    }
+  }
+}

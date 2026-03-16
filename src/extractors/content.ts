@@ -1,6 +1,8 @@
 import * as https from "https";
 import * as http from "http";
-import { CONFIG } from "../config";
+import { Readability } from "@mozilla/readability";
+import { JSDOM } from "jsdom";
+import { CONFIG } from "../config.js";
 
 /**
  * Fetch HTML from a URL with redirect handling
@@ -53,39 +55,28 @@ export function fetchURL(url: string, redirects = 0): Promise<string> {
 }
 
 /**
- * Extract readable text from HTML
+ * Extract readable text from HTML using Mozilla Readability.
+ * Falls back to basic tag stripping if Readability cannot parse the page.
  */
-export function extractTextFromHTML(html: string): string {
-  // Remove scripts, styles, nav, header, footer
-  let text = html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
-    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
-    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, "");
+export function extractTextFromHTML(html: string, url: string): string {
+  try {
+    const dom = new JSDOM(html, { url });
+    const article = new Readability(dom.window.document).parse();
+    if (article?.textContent) {
+      return article.textContent.replace(/\s+/g, " ").trim().slice(0, CONFIG.ENRICHMENT.MAX_CONTENT_LENGTH);
+    }
+  } catch {
+    // fall through to basic extraction
+  }
 
-  // Try to extract article content
-  const articleMatch =
-    text.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
-    text.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
-    text.match(/<div[^>]*class="[^"]*(?:post|article|content|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-
-  if (articleMatch) text = articleMatch[1];
-
-  // Remove HTML tags and decode entities
-  text = text
+  // Fallback: strip all tags
+  return html
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
-    .trim();
-
-  return text.slice(0, CONFIG.ENRICHMENT.MAX_CONTENT_LENGTH);
+    .trim()
+    .slice(0, CONFIG.ENRICHMENT.MAX_CONTENT_LENGTH);
 }
 
 /**
@@ -99,7 +90,7 @@ export async function enrichArticle(url: string, title: string): Promise<string>
       const html = await fetchURL(url);
       if (!html) continue;
 
-      const text = extractTextFromHTML(html);
+      const text = extractTextFromHTML(html, url);
       if (text.length > 200) return text;
     } catch {
       // continue to next attempt

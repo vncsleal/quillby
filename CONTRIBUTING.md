@@ -5,16 +5,13 @@ Thanks for helping improve GRIST.
 ## Development setup
 
 1. Fork the repo and create a branch from `main`.
-2. Install dependencies:
-   - `npm install`
-3. Initialize local private files:
-   - `npm run init`
-4. Configure environment:
-   - `cp .env.example .env`
-   - set `OPENAI_API_KEY`
-5. Validate locally:
-   - `npm run typecheck`
-   - `npm run harvest` (optional sanity test)
+2. Install dependencies with your preferred package manager.
+3. Create local config files if needed:
+   - `config/context.md`
+   - `config/rss_sources.txt`
+4. Validate locally:
+   - `tsc --noEmit`
+   - `npm run mcp:dev` (optional MCP startup sanity test)
 
 ## Pull request checklist
 
@@ -22,7 +19,6 @@ Thanks for helping improve GRIST.
 - Include a clear problem statement and solution summary.
 - Update docs when behavior changes.
 - Avoid committing secrets, outputs, or cache files.
-- For LLM-related changes, verify cost tracking still works (check `costs/*.json` after test run)
 
 ## Commit style (recommended)
 

@@ -1,48 +1,54 @@
 {
   "name": "grist",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "description": "GRIST — Guided Research & Insight Synthesis Tool. Reads the internet and writes content in your voice.",
   "license": "MIT",
   "author": "Vinicius Leal",
   "keywords": [
     "rss",
-    "openai",
+    "agents",
+    "mcp",
+    "ai",
     "content",
     "research",
-    "agent",
     "typescript"
   ],
   "engines": {
     "node": ">=20"
   },
-  "main": "dist/index.js",
+  "main": "dist/mcp/server.js",
+  "bin": {
+    "grist-mcp": "./bin/grist-mcp"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "config",
+    "README.md"
+  ],
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "run": "tsx src/index.ts harvest",
-    "harvest": "tsx src/index.ts harvest",
-    "compose": "tsx src/index.ts compose",
-    "board": "tsx src/index.ts board",
-    "init": "tsx src/index.ts init",
-    "help": "tsx src/index.ts help",
-    "run:log": "tsx src/index.ts 2>&1 | tee /tmp/grist.log",
-    "run:clean": "npm run clear-cache && tsx src/index.ts harvest",
-    "clean": "rm -rf .cache dist pipeline_*.log pipeline_run.log output.txt output.md",
-    "clean:all": "npm run clean && rm -rf output costs",
-    "start": "node dist/index.js",
+    "mcp": "node dist/mcp/server.js",
+    "mcp:dev": "tsx src/mcp/server.ts",
+    "mcp:start": "node dist/mcp/server.js",
+    "dev": "tsx src/mcp/server.ts",
+    "clean": "rm -rf .cache dist",
+    "clean:all": "rm -rf .cache dist output",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "clear-cache": "rm -rf .cache && echo 'Cache cleared'",
     "test": "echo 'tests pending'"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.9.0",
+    "@mozilla/readability": "^0.6.0",
     "chalk": "^5.6.2",
     "dotenv": "^16.4.5",
-    "openai": "^4.52.0",
+    "jsdom": "^29.0.0",
     "rss-parser": "^3.13.0",
-    "zod": "^3.23.8"
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.0",
     "@types/node": "^20.11.24",
     "tsx": "^4.7.2",
     "typescript": "^5.3.3"
