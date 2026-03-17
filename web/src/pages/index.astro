@@ -27,13 +27,77 @@ const claudeConfigPath = {
     <meta name="generator" content={Astro.generator} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;0,9..144,800;1,9..144,400&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://code.iconify.design/3/3.1.1/iconify.min.js" defer></script>
-    <title>Quillby — AI Copywriting Assistant for Claude</title>
-    <meta name="description" content="Quillby reads the internet and helps Claude write content in your voice. Install it as an MCP server in minutes." />
-    <meta property="og:title" content="Quillby — AI Copywriting Assistant for Claude" />
-    <meta property="og:description" content="Quillby reads the internet and helps Claude write content in your voice." />
+    <title>Quillby — AI Content Agent for Claude Desktop</title>
+    <meta name="description" content="Quillby is an AI content agent for Claude Desktop. It reads your feeds, filters what matters, and delivers fresh drafts in your voice — every day." />
+    <meta property="og:title" content="Quillby — AI Content Agent for Claude Desktop" />
+    <meta property="og:description" content="Quillby reads your feeds, filters what matters, and delivers ready-to-post drafts in your voice — every day." />
     <meta property="og:image" content="/quillby.png" />
     <Analytics />
+    <style>
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(24px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .fade-up {
+        opacity: 0;
+        animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      .delay-1 { animation-delay: 0.05s; }
+      .delay-2 { animation-delay: 0.18s; }
+      .delay-3 { animation-delay: 0.32s; }
+      .delay-4 { animation-delay: 0.46s; }
+      .delay-5 { animation-delay: 0.60s; }
+
+      [data-animate] {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      [data-animate].visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      [data-animate]:nth-child(2) { transition-delay: 0.08s; }
+      [data-animate]:nth-child(3) { transition-delay: 0.16s; }
+      [data-animate]:nth-child(4) { transition-delay: 0.24s; }
+      [data-animate]:nth-child(5) { transition-delay: 0.32s; }
+      [data-animate]:nth-child(6) { transition-delay: 0.40s; }
+
+      .feature-card {
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+      }
+      .feature-card:hover {
+        border-color: rgba(167, 139, 250, 0.4);
+        box-shadow: 0 0 32px rgba(167, 139, 250, 0.14);
+        transform: translateY(-3px);
+      }
+      .industry-card {
+        transition: border-color 0.2s ease, background-color 0.2s ease;
+      }
+      .industry-card:hover {
+        border-color: rgba(167, 139, 250, 0.3);
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+      .btn-primary {
+        transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.35), 0 4px 20px rgba(139, 92, 246, 0.25);
+      }
+      .btn-primary:hover {
+        box-shadow: 0 0 36px rgba(167, 139, 250, 0.55), 0 8px 32px rgba(139, 92, 246, 0.45);
+        transform: translateY(-1px);
+      }
+      .btn-ghost {
+        transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+      }
+      .btn-ghost:hover {
+        box-shadow: 0 0 20px rgba(167, 139, 250, 0.2);
+        transform: translateY(-1px);
+      }
+
+    </style>
   </head>
 
   <body class="bg-[#0e0b14] text-white antialiased font-sans">
@@ -53,27 +117,31 @@ const claudeConfigPath = {
 
     <!-- Hero -->
     <section class="max-w-5xl mx-auto px-6 pt-16 pb-20 flex flex-col items-center text-center gap-8">
-      <img
-        src="/quillby.png"
-        alt="Quillby mascot"
-        class="w-36 h-36 object-contain drop-shadow-[0_0_40px_rgba(167,139,250,0.4)]"
-      />
+      <div class="fade-up delay-1 relative w-36 h-36">
+        <div class="absolute inset-0 rounded-full bg-violet-600/60 blur-3xl scale-150" aria-hidden="true"></div>
+        <div class="absolute inset-0 rounded-full bg-violet-400/25 blur-2xl scale-110" aria-hidden="true"></div>
+        <img
+          src="/quillby.png"
+          alt="Quillby mascot"
+          class="relative w-full h-full object-contain"
+        />
+      </div>
 
-      <div class="space-y-4">
+      <div class="fade-up delay-2 space-y-4">
         <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight font-[Fraunces]">
-          <span class="text-violet-300">Open Claude.</span><br />
-          <span class="text-white">Get your daily draft.</span>
+          <span class="text-violet-300">Fresh drafts, every day.</span><br />
+          <span class="text-white">Stay current. Sound like you.</span>
         </h1>
         <p class="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Ask Claude <em class="text-slate-300 not-italic">"what should I post today?"</em> and get a ready-to-publish draft — researched, filtered for your audience, written in your voice. No extra accounts. No apps. Just Claude.
+          Ask your AI assistant <em class="text-slate-300 not-italic">"what should I post today?"</em> and get a ready-to-publish draft — sourced from your feeds, filtered for your audience, written in your voice.
         </p>
       </div>
 
-      <div class="flex gap-4 flex-wrap justify-center">
-        <a href="#install" class="px-7 py-3 bg-violet-500 hover:bg-violet-400 text-white font-semibold rounded-full transition-colors text-sm shadow-lg shadow-violet-900/40">
+      <div class="fade-up delay-3 flex gap-4 flex-wrap justify-center">
+        <a href="#install" class="btn-primary px-7 py-3 bg-gradient-to-r from-violet-500 to-violet-400 hover:from-violet-400 hover:to-violet-300 text-white font-semibold rounded-full text-sm">
           Install free →
         </a>
-        <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="px-7 py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-full transition-colors text-sm">
+        <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="btn-ghost px-7 py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-full text-sm border border-white/10">
           View on GitHub
         </a>
       </div>
@@ -84,10 +152,10 @@ const claudeConfigPath = {
       <div class="grid sm:grid-cols-3 gap-4">
         {[
           { icon: 'line-md:rss', title: 'Reads the internet', body: 'RSS feeds, Reddit communities, Medium articles — Quillby stays up to date on the topics that matter to you.' },
-          { icon: 'line-md:filter-twotone', title: 'Stays on-topic', body: 'You define your industry, audience, and voice once. Claude uses that profile to filter and rank every article it reads.' },
-          { icon: 'line-md:pencil-twotone-alt', title: 'Writes in your voice', body: 'No generic AI slop. Quillby gives Claude the raw material; Claude writes the post the way you would write it.' },
+          { icon: 'line-md:filter-twotone', title: 'Stays on-topic', body: 'You define your industry, audience, and voice once. Quillby uses that profile to filter and rank every article it reads.' },
+          { icon: 'line-md:pencil-twotone-alt', title: 'Writes in your voice', body: 'No generic AI slop. Quillby sources, filters, and prepares the material — so your posts come out sounding like you, not a robot.' },
         ].map(f => (
-          <div class="rounded-2xl bg-white/5 border border-white/8 p-6 space-y-3">
+          <div data-animate class="feature-card rounded-2xl bg-white/5 border border-white/8 p-6 space-y-3">
             <span class="iconify text-4xl text-violet-400" data-icon={f.icon}></span>
             <h3 class="font-semibold text-white">{f.title}</h3>
             <p class="text-sm text-slate-400 leading-relaxed">{f.body}</p>
@@ -98,15 +166,15 @@ const claudeConfigPath = {
 
     <!-- How it works -->
     <section id="how-it-works" class="max-w-5xl mx-auto px-6 pb-24">
-      <h2 class="text-3xl font-bold mb-10 text-center font-[Fraunces]">How it works</h2>
+      <h2 data-animate class="text-3xl font-bold mb-10 text-center font-[Fraunces]">How it works</h2>
       <ol class="space-y-6 max-w-2xl mx-auto">
         {[
           { step: '1', label: 'Install Quillby', desc: 'One curl command handles everything — installs Quillby and connects it to Claude Desktop.' },
-          { step: '2', label: 'Restart Claude Desktop', desc: 'Fully quit and reopen — Claude loads Quillby on startup.' },
-          { step: '3', label: 'Say "set me up"', desc: 'Claude asks a few questions about your industry, audience and voice, then saves your profile.' },
-          { step: '4', label: 'Say "fetch today\'s content"', desc: 'Claude reads your feeds, picks the most relevant articles, and turns them into ready-to-post drafts.' },
+          { step: '2', label: 'Restart Claude Desktop', desc: 'Fully quit and reopen — Claude Desktop loads Quillby on startup.' },
+          { step: '3', label: 'Say "set me up"', desc: 'Your AI assistant asks a few questions about your industry, audience and voice — then saves your profile.' },
+          { step: '4', label: 'Say "fetch today\'s content"', desc: 'Quillby reads your feeds, ranks the most relevant articles, and serves ready-to-post drafts tailored to your voice and audience.' },
         ].map(item => (
-          <li class="flex gap-5 items-start">
+          <li data-animate class="flex gap-5 items-start">
             <span class="shrink-0 w-9 h-9 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 font-bold text-sm flex items-center justify-center">{item.step}</span>
             <div>
               <p class="font-semibold text-white">{item.label}</p>
@@ -119,7 +187,7 @@ const claudeConfigPath = {
 
     <!-- Install -->
     <section id="install" class="max-w-5xl mx-auto px-6 pb-24">
-      <h2 class="text-3xl font-bold mb-2 text-center font-[Fraunces]">Install Quillby</h2>
+      <h2 data-animate class="text-3xl font-bold mb-2 text-center font-[Fraunces]">Install Quillby</h2>
       <p class="text-slate-400 text-center mb-8 text-sm">Requires <a href="https://nodejs.org" target="_blank" rel="noopener" class="text-violet-400 hover:underline">Node.js 20+</a></p>
 
       <!-- Outer tabs: One-liner | npm -->
@@ -280,7 +348,7 @@ const claudeConfigPath = {
 
     <!-- Who it's for -->
     <section class="max-w-5xl mx-auto px-6 pb-24">
-      <h2 class="text-3xl font-bold mb-10 text-center font-[Fraunces]">Built for every industry</h2>
+      <h2 data-animate class="text-3xl font-bold mb-10 text-center font-[Fraunces]">Built for every industry</h2>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
         {[
           { icon: 'ph:handbag',                    label: 'Fashion & retail' },
@@ -296,7 +364,7 @@ const claudeConfigPath = {
           { icon: 'ph:palette',                     label: 'Design & creative' },
           { icon: 'ph:laptop',                      label: 'Technology' },
         ].map(({ icon, label }) => (
-          <div class="rounded-xl bg-white/5 border border-white/8 py-4 px-2 text-slate-300 flex flex-col items-center gap-2">
+          <div data-animate class="industry-card rounded-xl bg-white/5 border border-white/8 py-4 px-2 text-slate-300 flex flex-col items-center gap-2">
             <span class="iconify text-2xl text-violet-400" data-icon={icon}></span>
             <span class="text-xs leading-snug">{label}</span>
           </div>
@@ -314,10 +382,20 @@ const claudeConfigPath = {
         </div>
         <div class="flex gap-5">
           <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
-          <a href="https://www.npmjs.com/package/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">npm</a>
+          <a href="https://www.npmjs.com/package/@vncsleal/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">npm</a>
           <a href="https://github.com/vncsleal/quillby/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">License</a>
         </div>
       </div>
     </footer>
+
+    <script>
+      const _ao = new IntersectionObserver(
+        (entries) => entries.forEach(e => {
+          if (e.isIntersecting) { e.target.classList.add('visible'); _ao.unobserve(e.target); }
+        }),
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll('[data-animate]').forEach(el => _ao.observe(el));
+    </script>
 
   </body>
