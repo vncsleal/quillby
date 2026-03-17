@@ -14,23 +14,27 @@ USER_HOME=$(dscl . -read "/Users/$CURRENT_USER" NFSHomeDirectory 2>/dev/null | a
 CONFIG_DIR="$USER_HOME/Library/Application Support/Claude"
 CONFIG_FILE="$CONFIG_DIR/claude_desktop_config.json"
 
-# Ensure directory exists
 mkdir -p "$CONFIG_DIR"
 
-# Create config file if missing
-[ ! -f "$CONFIG_FILE" ] && echo '{}' > "$CONFIG_FILE"
+# Create or reset config if missing or corrupted
+if [ ! -f "$CONFIG_FILE" ] || ! plutil -lint "$CONFIG_FILE" > /dev/null 2>&1; then
+    echo '{}' > "$CONFIG_FILE"
+fi
 
-# Ensure the file is valid JSON (reset if corrupted)
-plutil -lint "$CONFIG_FILE" > /dev/null 2>&1 || echo '{}' > "$CONFIG_FILE"
+# Convert JSON → XML plist so PlistBuddy can work with it
+PLIST="/tmp/quillby-$$.plist"
+plutil -convert xml1 "$CONFIG_FILE" -o "$PLIST"
 
-# Ensure mcpServers key exists (ignore failure if key already present)
-plutil -insert mcpServers -json '{}' "$CONFIG_FILE" 2>/dev/null || true
+# Use PlistBuddy for reliable nested key manipulation (available on all macOS)
+/usr/libexec/PlistBuddy -c "Add :mcpServers dict" "$PLIST" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Delete :mcpServers:quillby" "$PLIST" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :mcpServers:quillby dict" "$PLIST"
+/usr/libexec/PlistBuddy -c "Add :mcpServers:quillby:command string $BINARY_PATH" "$PLIST"
 
-# Insert quillby entry, or replace if it already exists
-plutil -insert "mcpServers.quillby" -json "{\"command\":\"$BINARY_PATH\"}" "$CONFIG_FILE" 2>/dev/null || \
-    plutil -replace "mcpServers.quillby" -json "{\"command\":\"$BINARY_PATH\"}" "$CONFIG_FILE"
+# Convert back to JSON and clean up
+plutil -convert json "$PLIST" -o "$CONFIG_FILE"
+rm -f "$PLIST"
 
-# Fix ownership so the user owns their own config
 chown -R "$CURRENT_USER" "$CONFIG_DIR"
 
 exit 0
