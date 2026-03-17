@@ -1,0 +1,16 @@
+name: quillby
+displayName: Quillby
+description: >
+  Quillby reads the internet and helps Claude write content in your voice.
+  Set up once — then ask Claude for your daily brief and get ready-to-post drafts every day.
+homepage: https://github.com/vncsleal/quillby
+license: MIT
+
+startCommand:
+  type: stdio
+  command: npx
+  args:
+    - "--yes"
+    - "--package"
+    - "quillby"
+    - "quillby-mcp"

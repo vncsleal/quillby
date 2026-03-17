@@ -1,0 +1,323 @@
+---
+import '../styles/global.css';
+import Analytics from '@vercel/analytics/astro';
+
+const curlCommand = `curl -fsSL https://raw.githubusercontent.com/vncsleal/quillby/main/install.sh | bash`;
+const ps1Command = `irm https://raw.githubusercontent.com/vncsleal/quillby/main/install.ps1 | iex`;
+
+const claudeConfig = `{
+  "mcpServers": {
+    "quillby": {
+      "command": "quillby-mcp"
+    }
+  }
+}`;
+
+const claudeConfigPath = {
+  mac: '~/Library/Application Support/Claude/claude_desktop_config.json',
+  windows: '%APPDATA%\\Claude\\claude_desktop_config.json',
+};
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/quillby.png" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js" defer></script>
+    <title>Quillby — AI Copywriting Assistant for Claude</title>
+    <meta name="description" content="Quillby reads the internet and helps Claude write content in your voice. Install it as an MCP server in minutes." />
+    <meta property="og:title" content="Quillby — AI Copywriting Assistant for Claude" />
+    <meta property="og:description" content="Quillby reads the internet and helps Claude write content in your voice." />
+    <meta property="og:image" content="/quillby.png" />
+    <Analytics />
+  </head>
+
+  <body class="bg-[#0e0b14] text-white antialiased font-sans">
+
+    <!-- Nav -->
+    <nav class="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <img src="/quillby.png" alt="Quillby" class="w-9 h-9 rounded-full object-cover" />
+        <span class="font-bold text-lg tracking-tight text-white font-[Fraunces]">Quillby</span>
+      </div>
+      <div class="flex items-center gap-5 text-sm text-slate-400">
+        <a href="#install" class="hover:text-white transition-colors">Install</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How it works</a>
+        <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="max-w-5xl mx-auto px-6 pt-16 pb-20 flex flex-col items-center text-center gap-8">
+      <img
+        src="/quillby.png"
+        alt="Quillby mascot"
+        class="w-36 h-36 object-contain drop-shadow-[0_0_40px_rgba(167,139,250,0.4)]"
+      />
+
+      <div class="space-y-4">
+        <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight font-[Fraunces]">
+          <span class="text-violet-300">Open Claude.</span><br />
+          <span class="text-white">Get your daily draft.</span>
+        </h1>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          Ask Claude <em class="text-slate-300 not-italic">"what should I post today?"</em> and get a ready-to-publish draft — researched, filtered for your audience, written in your voice. No extra accounts. No apps. Just Claude.
+        </p>
+      </div>
+
+      <div class="flex gap-4 flex-wrap justify-center">
+        <a href="#install" class="px-7 py-3 bg-violet-500 hover:bg-violet-400 text-white font-semibold rounded-full transition-colors text-sm shadow-lg shadow-violet-900/40">
+          Install free →
+        </a>
+        <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="px-7 py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-full transition-colors text-sm">
+          View on GitHub
+        </a>
+      </div>
+    </section>
+
+    <!-- Feature pills -->
+    <section class="max-w-5xl mx-auto px-6 pb-20">
+      <div class="grid sm:grid-cols-3 gap-4">
+        {[
+          { icon: 'line-md:rss', title: 'Reads the internet', body: 'RSS feeds, Reddit communities, Medium articles — Quillby stays up to date on the topics that matter to you.' },
+          { icon: 'line-md:filter-twotone', title: 'Stays on-topic', body: 'You define your industry, audience, and voice once. Claude uses that profile to filter and rank every article it reads.' },
+          { icon: 'line-md:pencil-twotone-alt', title: 'Writes in your voice', body: 'No generic AI slop. Quillby gives Claude the raw material; Claude writes the post the way you would write it.' },
+        ].map(f => (
+          <div class="rounded-2xl bg-white/5 border border-white/8 p-6 space-y-3">
+            <span class="iconify text-4xl text-violet-400" data-icon={f.icon}></span>
+            <h3 class="font-semibold text-white">{f.title}</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">{f.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how-it-works" class="max-w-5xl mx-auto px-6 pb-24">
+      <h2 class="text-3xl font-bold mb-10 text-center font-[Fraunces]">How it works</h2>
+      <ol class="space-y-6 max-w-2xl mx-auto">
+        {[
+          { step: '1', label: 'Install Quillby', desc: 'One curl command handles everything — installs Quillby and connects it to Claude Desktop.' },
+          { step: '2', label: 'Restart Claude Desktop', desc: 'Fully quit and reopen — Claude loads Quillby on startup.' },
+          { step: '3', label: 'Say "set me up"', desc: 'Claude asks a few questions about your industry, audience and voice, then saves your profile.' },
+          { step: '4', label: 'Say "fetch today\'s content"', desc: 'Claude reads your feeds, picks the most relevant articles, and turns them into ready-to-post drafts.' },
+        ].map(item => (
+          <li class="flex gap-5 items-start">
+            <span class="shrink-0 w-9 h-9 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 font-bold text-sm flex items-center justify-center">{item.step}</span>
+            <div>
+              <p class="font-semibold text-white">{item.label}</p>
+              <p class="text-sm text-slate-400 mt-0.5">{item.desc}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <!-- Install -->
+    <section id="install" class="max-w-5xl mx-auto px-6 pb-24">
+      <h2 class="text-3xl font-bold mb-2 text-center font-[Fraunces]">Install Quillby</h2>
+      <p class="text-slate-400 text-center mb-8 text-sm">Requires <a href="https://nodejs.org" target="_blank" rel="noopener" class="text-violet-400 hover:underline">Node.js 20+</a></p>
+
+      <!-- Outer tabs: One-liner | npm -->
+      <div class="max-w-2xl mx-auto">
+        <div class="flex gap-1 mb-8 bg-white/5 rounded-xl p-1">
+          <button data-tab="quick" class="tab-btn flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors bg-violet-600 text-white">One-liner</button>
+          <button data-tab="manual" class="tab-btn flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors text-slate-400 hover:text-white">npm (manual)</button>
+        </div>
+
+        <!-- One-liner tab -->
+        <div id="tab-quick" class="space-y-6">
+          <p class="text-sm text-slate-400">Paste one command in your terminal. It installs Quillby and connects it to Claude Desktop automatically.</p>
+
+          <!-- OS sub-tabs -->
+          <div class="flex gap-1 bg-white/4 rounded-lg p-0.5 w-fit">
+            <button data-os="mac" class="os-tab-btn flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors bg-white/10 text-white">
+              <span class="iconify text-sm" data-icon="ph:apple-logo"></span> macOS / Linux
+            </button>
+            <button data-os="win" class="os-tab-btn flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors text-slate-400 hover:text-white">
+              <span class="iconify text-sm" data-icon="ph:windows-logo"></span> Windows
+            </button>
+          </div>
+
+          <!-- macOS / Linux command -->
+          <div id="os-mac" class="relative group">
+            <pre class="bg-[#1a1425] border border-white/10 rounded-xl px-5 py-4 pr-12 text-sm text-violet-200 overflow-x-auto"><code>{curlCommand}</code></pre>
+            <button
+              data-copy={curlCommand}
+              class="copy-btn absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center bg-white/8 hover:bg-white/15 rounded-lg text-slate-400 hover:text-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+              aria-label="Copy command"
+            >
+              <span class="iconify text-base" data-icon="ph:copy"></span>
+            </button>
+          </div>
+
+          <!-- Windows command -->
+          <div id="os-win" class="relative group hidden">
+            <pre class="bg-[#1a1425] border border-white/10 rounded-xl px-5 py-4 pr-12 text-sm text-violet-200 overflow-x-auto"><code>{ps1Command}</code></pre>
+            <button
+              data-copy={ps1Command}
+              class="copy-btn absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center bg-white/8 hover:bg-white/15 rounded-lg text-slate-400 hover:text-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+              aria-label="Copy command"
+            >
+              <span class="iconify text-base" data-icon="ph:copy"></span>
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-slate-300 uppercase tracking-wider">After install — restart Claude and say:</p>
+            <div class="bg-[#1a1425] border border-violet-500/30 rounded-xl px-5 py-4 text-violet-200 text-sm italic">
+              "Set me up with Quillby"
+            </div>
+            <p class="text-sm text-slate-400">Claude walks you through onboarding, discovers your content sources, and is ready to write for you tomorrow morning.</p>
+          </div>
+        </div>
+
+        <!-- Manual tab -->
+        <div id="tab-manual" class="space-y-8 hidden">
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Step 1 — Install the package</p>
+            <div class="relative group">
+              <pre class="bg-[#1a1425] border border-white/10 rounded-xl px-5 py-4 pr-12 text-sm text-violet-200 overflow-x-auto"><code>npm install -g quillby</code></pre>
+              <button
+                data-copy="npm install -g quillby"
+                class="copy-btn absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center bg-white/8 hover:bg-white/15 rounded-lg text-slate-400 hover:text-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+                aria-label="Copy command"
+              >
+                <span class="iconify text-base" data-icon="ph:copy"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Step 2 — Add to Claude Desktop config</p>
+            <p class="text-sm text-slate-400">Open your Claude Desktop config file:</p>
+            <div class="space-y-2 text-xs">
+              <div class="flex gap-2 items-center">
+                <span class="text-slate-500">macOS</span>
+                <code class="text-slate-300 bg-white/5 rounded px-2 py-0.5">{claudeConfigPath.mac}</code>
+              </div>
+              <div class="flex gap-2 items-center">
+                <span class="text-slate-500">Windows</span>
+                <code class="text-slate-300 bg-white/5 rounded px-2 py-0.5">{claudeConfigPath.windows}</code>
+              </div>
+            </div>
+            <p class="text-sm text-slate-400 mt-2">Add the following inside <code class="text-violet-300 bg-white/5 rounded px-1">mcpServers</code>:</p>
+            <div class="relative group">
+              <pre class="bg-[#1a1425] border border-white/10 rounded-xl px-5 py-4 pr-12 text-sm text-violet-200 overflow-x-auto"><code>{claudeConfig}</code></pre>
+              <button
+                data-copy={claudeConfig}
+                class="copy-btn absolute top-2.5 right-2.5 w-8 h-8 flex items-center justify-center bg-white/8 hover:bg-white/15 rounded-lg text-slate-400 hover:text-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+                aria-label="Copy config"
+              >
+                <span class="iconify text-base" data-icon="ph:copy"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Step 3 — Restart Claude and say:</p>
+            <div class="bg-[#1a1425] border border-violet-500/30 rounded-xl px-5 py-4 text-violet-200 text-sm italic">
+              "Set me up with Quillby"
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      // Outer install tabs: One-liner / npm
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = (btn as HTMLElement).dataset.tab!;
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('bg-violet-600', 'text-white');
+            b.classList.add('text-slate-400');
+          });
+          btn.classList.add('bg-violet-600', 'text-white');
+          btn.classList.remove('text-slate-400');
+          ['quick', 'manual'].forEach(t => {
+            document.getElementById('tab-' + t)!.classList.toggle('hidden', t !== tab);
+          });
+        });
+      });
+
+      // OS sub-tabs: macOS | Windows
+      document.querySelectorAll('.os-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const os = (btn as HTMLElement).dataset.os!;
+          document.querySelectorAll('.os-tab-btn').forEach(b => {
+            b.classList.remove('bg-white/10', 'text-white');
+            b.classList.add('text-slate-400');
+          });
+          btn.classList.add('bg-white/10', 'text-white');
+          btn.classList.remove('text-slate-400');
+          ['mac', 'win'].forEach(o => {
+            document.getElementById('os-' + o)!.classList.toggle('hidden', o !== os);
+          });
+        });
+      });
+
+      // Copy icon buttons: copy text, flash check icon for 1.5s
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const text = (btn as HTMLElement).dataset.copy!;
+          navigator.clipboard.writeText(text).catch(() => {});
+          const icon = btn.querySelector('.iconify') as HTMLElement | null;
+          if (!icon) return;
+          icon.dataset.icon = 'ph:check';
+          icon.style.color = '#a78bfa';
+          setTimeout(() => {
+            icon.dataset.icon = 'ph:copy';
+            icon.style.color = '';
+          }, 1500);
+        });
+      });
+    </script>
+
+    <!-- Who it's for -->
+    <section class="max-w-5xl mx-auto px-6 pb-24">
+      <h2 class="text-3xl font-bold mb-10 text-center font-[Fraunces]">Built for every industry</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
+        {[
+          { icon: 'ph:handbag',                    label: 'Fashion & retail' },
+          { icon: 'ph:scales',                      label: 'Law & legal' },
+          { icon: 'ph:hard-hat',                    label: 'Construction' },
+          { icon: 'ph:plant',                       label: 'Agriculture' },
+          { icon: 'ph:first-aid-kit',               label: 'Healthcare' },
+          { icon: 'ph:currency-circle-dollar',      label: 'Finance' },
+          { icon: 'ph:fork-knife',                  label: 'Food & hospitality' },
+          { icon: 'ph:barbell',                     label: 'Fitness & wellness' },
+          { icon: 'ph:house',                       label: 'Real estate' },
+          { icon: 'ph:graduation-cap',              label: 'Education' },
+          { icon: 'ph:palette',                     label: 'Design & creative' },
+          { icon: 'ph:laptop',                      label: 'Technology' },
+        ].map(({ icon, label }) => (
+          <div class="rounded-xl bg-white/5 border border-white/8 py-4 px-2 text-slate-300 flex flex-col items-center gap-2">
+            <span class="iconify text-2xl text-violet-400" data-icon={icon}></span>
+            <span class="text-xs leading-snug">{label}</span>
+          </div>
+        ))}
+      </div>
+      <p class="text-center text-slate-500 text-sm mt-6">Quillby works for any niche — it reads what your industry is talking about, not just tech Twitter.</p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/8 py-10">
+      <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+        <div class="flex items-center gap-2">
+          <img src="/quillby.png" alt="Quillby" class="w-6 h-6 rounded-full object-cover opacity-60" />
+          <span>Quillby — MIT License</span>
+        </div>
+        <div class="flex gap-5">
+          <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+          <a href="https://www.npmjs.com/package/quillby" target="_blank" rel="noopener" class="hover:text-white transition-colors">npm</a>
+          <a href="https://github.com/vncsleal/quillby/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">License</a>
+        </div>
+      </div>
+    </footer>
+
+  </body>

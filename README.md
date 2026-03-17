@@ -9,87 +9,59 @@ No extra accounts. No API keys. Everything runs on your computer, inside Claude.
 ## What you need
 
 - **[Claude Desktop](https://claude.ai/download)** — the free desktop app from Anthropic (free tier works)
-- **[Node.js](https://nodejs.org)** — a free one-time install (click the large **LTS** button on their site)
+- **[Node.js 20+](https://nodejs.org)** — a free one-time install (click the large **LTS** button on their site)
 
 ---
 
 ## Installation
 
-This is a one-time setup. It takes about 10 minutes.
+### macOS / Linux
 
-### 1. Download Quillby
+Paste this into your terminal. It installs Quillby and connects it to Claude Desktop automatically:
 
-At the top of this page, click **Code → Download ZIP**. Unzip it. Move the `grist` folder somewhere you'll remember — your **Documents** folder works well.
-
-### 2. Open a terminal
-
-**Mac:** Press `Cmd + Space`, type `Terminal`, press Enter.
-
-**Windows:** Press `Win + R`, type `cmd`, press Enter.
-
-### 3. Go to the quillby folder
-
-Type `cd ` (with a space after it), then drag the `grist` folder from Finder (Mac) or File Explorer (Windows) directly into the terminal window. Press Enter.
-
-### 4. Run the setup commands
-
-Copy and paste each line and press Enter after each one. Wait for the cursor to stop blinking before running the next.
-
-```
-npm install
+```bash
+curl -fsSL https://raw.githubusercontent.com/vncsleal/quillby/main/install.sh | bash
 ```
 
-*Downloads what Quillby needs to run. Takes about a minute.*
+### Windows
 
-```
-npm run build
-```
+Open PowerShell and run:
 
-*Compiles Quillby. Done in a few seconds.*
-
-### 5. Find your Quillby path
-
-Still in the terminal, run this:
-
-**Mac:**
-```
-echo "$PWD/bin/quillby-mcp"
+```powershell
+irm https://raw.githubusercontent.com/vncsleal/quillby/main/install.ps1 | iex
 ```
 
-**Windows:**
-```
-echo %CD%\bin\quillby-mcp
-```
+Both scripts handle everything: install Quillby, inject the Claude Desktop config with absolute paths, and print next steps.
 
-It will print a path like `/Users/yourname/Documents/quillby/bin/quillby-mcp`. **Copy the entire line.**
+Then **fully quit Claude Desktop** (right-click the Dock/taskbar icon → Quit), reopen it, and in a new chat type:
 
-### 6. Connect Quillby to Claude Desktop
-
-Open Claude Desktop. Go to **Settings → Developer → Edit Config**.
-
-This opens a file. Replace everything in it with the text below, swapping in the path you just copied:
-
-```json
-{
-  "mcpServers": {
-    "quillby": {
-      "command": "/Users/yourname/Documents/quillby/bin/quillby-mcp"
-    }
-  }
-}
-```
-
-Save the file. Then **fully quit Claude Desktop** — right-click the icon in the Dock (Mac) or taskbar (Windows) and choose Quit — then reopen it.
-
-> **Already have other tools?** If the config file has content already, don't replace everything. Add the `"quillby": { ... }` block inside the existing `"mcpServers"` section.
-
-### 7. Tell Quillby about yourself
-
-In a new Claude conversation, type exactly:
-
-> Run the quillby_onboarding prompt
+> Set me up with Quillby
 
 Claude will ask a few questions about your work, your audience, and what you publish. Answer naturally — that's how Quillby learns your voice.
+
+### Manual install (any platform)
+
+1. Install the package:
+   ```
+   npm install -g quillby
+   ```
+
+2. Open your Claude Desktop config file:
+   - **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+3. Add the following inside the `mcpServers` block:
+   ```json
+   {
+     "mcpServers": {
+       "quillby": {
+         "command": "quillby-mcp"
+       }
+     }
+   }
+   ```
+
+4. Fully quit and reopen Claude Desktop, then say: *Set me up with Quillby*
 
 ---
 
@@ -113,7 +85,7 @@ Claude writes it in your voice, based on your profile.
 
 > "Save this draft"
 
-Quillby stores it in the `output/` folder inside your grist directory.
+Quillby stores it in the `output/` folder inside your Quillby directory.
 
 ---
 
@@ -143,7 +115,7 @@ To check what Quillby knows about your style:
 
 **Being specific gets better results.** "Write a 150-word conversational LinkedIn post from idea 2" works much better than "write a post."
 
-**Your content stays on your computer.** Your profile, voice examples, drafts, and content ideas are saved locally in your `grist/` folder. Nothing is sent to any external service.
+**Your content stays on your computer.** Your profile, voice examples, drafts, and content ideas are saved locally in the `output/` folder. Nothing is sent to any external service.
 
 ---
 
