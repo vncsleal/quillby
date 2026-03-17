@@ -58,7 +58,7 @@ class McpTestClient {
     });
   }
 
-  request(msg: object & { id: number }): Promise<JsonRpcResponse> {
+  request(msg: { id: number; [key: string]: unknown }): Promise<JsonRpcResponse> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(msg.id);

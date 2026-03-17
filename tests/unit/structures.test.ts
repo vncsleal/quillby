@@ -13,12 +13,12 @@ import {
   loadLatestHarvest,
   latestHarvestExists,
 } from "../../src/output/structures.js";
-import type { CardInput } from "../../src/types.js";
+import { CardInputSchema, type CardInput } from "../../src/types.js";
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
 function makeCard(overrides: Partial<CardInput> = {}): CardInput {
-  return {
+  return CardInputSchema.parse({
     title: "Test Article",
     source: "example.com",
     link: "https://example.com/article",
@@ -32,7 +32,7 @@ function makeCard(overrides: Partial<CardInput> = {}): CardInput {
     hookOptions: ["Hook A"],
     transposabilityHint: "Works for startups.",
     ...overrides,
-  };
+  });
 }
 
 // ─── Temp-dir isolation ────────────────────────────────────────────────────────
