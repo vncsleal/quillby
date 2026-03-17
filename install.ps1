@@ -22,18 +22,18 @@ $nodeVersion = node --version
 Write-Host "v  Node.js $nodeVersion" -ForegroundColor Green
 
 # ── 2. Install quillby globally ───────────────────────────────────────────────
-Write-Host "->  Installing Quillby (npm install -g quillby)..."
-npm install -g quillby --silent
+Write-Host "->  Installing Quillby (npm install -g @vncsleal/quillby)..."
+npm install -g @vncsleal/quillby --silent
 Write-Host "v  Quillby installed" -ForegroundColor Green
 
 # ── 3. Resolve absolute paths ─────────────────────────────────────────────────
 $nodeBin = (Get-Command node).Source
 $npmGlobalRoot = (npm root -g).Trim()
-$serverJs = Join-Path $npmGlobalRoot "quillby\dist\mcp\server.js"
+$serverJs = Join-Path $npmGlobalRoot "@vncsleal\quillby\dist\mcp\server.js"
 
 if (-not (Test-Path $serverJs)) {
     Write-Host "x  Could not find $serverJs" -ForegroundColor Red
-    Write-Host "   Try running: npm install -g quillby"
+    Write-Host "   Try running: npm install -g @vncsleal/quillby"
     exit 1
 }
 

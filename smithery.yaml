@@ -12,5 +12,5 @@ startCommand:
   args:
     - "--yes"
     - "--package"
-    - "quillby"
+    - "@vncsleal/quillby"
     - "quillby-mcp"

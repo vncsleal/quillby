@@ -43,7 +43,7 @@ Claude will ask a few questions about your work, your audience, and what you pub
 
 1. Install the package:
    ```
-   npm install -g quillby
+   npm install -g @vncsleal/quillby
    ```
 
 2. Open your Claude Desktop config file:

@@ -27,18 +27,18 @@ NODE_VERSION=$(node --version)
 echo -e "${GREEN}✓${RESET}  Node.js ${NODE_VERSION}"
 
 # ── 2. Install quillby globally ───────────────────────────────────────────────
-echo "→  Installing Quillby (npm install -g quillby)..."
-npm install -g quillby --silent
+echo "→  Installing Quillby (npm install -g @vncsleal/quillby)..."
+npm install -g @vncsleal/quillby --silent
 echo -e "${GREEN}✓${RESET}  Quillby installed"
 
 # ── 3. Resolve absolute paths ─────────────────────────────────────────────────
 NODE_BIN=$(node -e "process.stdout.write(process.execPath)")
 NPM_GLOBAL_ROOT=$(npm root -g)
-SERVER_JS="${NPM_GLOBAL_ROOT}/quillby/dist/mcp/server.js"
+SERVER_JS="${NPM_GLOBAL_ROOT}/@vncsleal/quillby/dist/mcp/server.js"
 
 if [[ ! -f "$SERVER_JS" ]]; then
   echo -e "${RED}✗  Could not find ${SERVER_JS}${RESET}"
-  echo "   Try running: npm install -g quillby"
+  echo "   Try running: npm install -g @vncsleal/quillby"
   exit 1
 fi
 
