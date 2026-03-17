@@ -1,13 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
+
+const DATA_DIR = path.join(os.homedir(), ".quillby");
 
 export const CONFIG = {
   FILES: {
-    CONTEXT: path.join(process.cwd(), "config/context.json"),
-    MEMORY: path.join(process.cwd(), "config/memory.json"),
-    SOURCES: path.join(process.cwd(), "config/rss_sources.txt"),
-    OUTPUT_DIR: path.join(process.cwd(), "output"),
-    CACHE: path.join(process.cwd(), ".cache/seen_urls.json"),
+    CONTEXT: path.join(DATA_DIR, "context.json"),
+    MEMORY: path.join(DATA_DIR, "memory.json"),
+    SOURCES: path.join(DATA_DIR, "rss_sources.txt"),
+    OUTPUT_DIR: path.join(DATA_DIR, "output"),
+    CACHE: path.join(DATA_DIR, ".cache/seen_urls.json"),
   },
   RSS: {
     ITEMS_PER_FEED: parseInt(process.env.RSS_ITEMS_PER_FEED || "5", 10),
