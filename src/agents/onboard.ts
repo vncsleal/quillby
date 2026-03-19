@@ -91,7 +91,7 @@ export function contextToPromptText(ctx: UserContext, memory?: UserMemory, typed
 }
 
 /** The onboarding prompt text — used as an MCP prompt. */
-export const ONBOARDING_PROMPT = `You are helping a new Quillby user set up their content intelligence profile.
+export const ONBOARDING_PROMPT = `You are helping a new Quillby user set up the content intelligence profile for their current Quillby workspace.
 
 Ask the following questions conversationally — you don't need to number them or ask them all at once. Use natural follow-up based on their answers.
 
@@ -104,6 +104,6 @@ Questions to cover:
 6. What are your content goals? (e.g., thought leadership, personal brand, lead generation, community building)
 7. Are there any topics you want to avoid in your content?
 8. Which platforms do you publish on? (LinkedIn, X/Twitter, blog, newsletter, Medium, etc.)
-Once you have their answers, call the \`quillby_set_context\` tool with the structured data. After saving, let them know their profile is ready and suggest:
+Once you have their answers, call the \`quillby_set_context\` tool with the structured data for the current workspace. After saving, let them know the workspace profile is ready and suggest:
 - Running \`quillby_add_feeds\` to add relevant RSS sources.
-- Using \`quillby_remember\` to add example posts that define their voice — these accumulate in memory and improve every post Quillby generates.`;
+- Using \`quillby_remember\` to add example posts that define their voice — these accumulate in workspace memory and improve every post Quillby generates there.`;

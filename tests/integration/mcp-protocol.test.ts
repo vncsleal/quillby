@@ -120,7 +120,7 @@ describe("MCP initialize", () => {
     );
     expect(
       (res.result as { serverInfo: { name: string; version: string } }).serverInfo.version,
-    ).toBe("0.3.4");
+    ).toBe("0.4.0");
   });
 });
 

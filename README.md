@@ -139,7 +139,7 @@ You can also save typed editorial memory:
 
 **Quillby doesn't appear in Claude** — Make sure you fully quit and reopened Claude Desktop after saving the config. Check the path in the config matches exactly what the terminal printed (no extra spaces or missing characters).
 
-**"No context saved" error** — Run the onboarding first: *"Run the quillby_onboarding prompt"*
+**"No context saved" error** — Run onboarding for the current workspace: *"Set me up with Quillby"* or *"Run the quillby_onboarding prompt"*
 
 **"No feeds configured" error** — Ask Claude to find sources: *"Find RSS feeds for my topics and add them to Quillby"*
 

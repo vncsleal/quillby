@@ -61,7 +61,7 @@ const MEMORY_TYPES = {
 type MemoryTypeInput = keyof typeof MEMORY_TYPES;
 
 const server = new Server(
-  { name: "quillby-mcp", version: "0.3.4" },
+  { name: "quillby-mcp", version: "0.4.0" },
   { capabilities: { tools: {}, resources: {}, prompts: {}, logging: {} } }
 );
 
@@ -1345,7 +1345,7 @@ Quillby handles file I/O and data plumbing. All editorial judgment lives in the 
 8. Call quillby_save_draft to persist it.
 
 ### Voice rules (apply before writing any draft)
-- Read the user's voice examples from quillby://memory. Identify the 2-3 strongest stylistic quirks. Amplify them — oversteer, not understeer.
+- Read the active workspace memory from quillby://memory. Focus first on voice_examples, then apply style_rules, do_not_say, audience_insights, and campaign_context. Identify the 2-3 strongest stylistic quirks and amplify them — oversteer, not understeer.
 - Use typed memory buckets: style_rules, do_not_say, audience_insights, campaign_context.
 - BANNED: “It’s not X, it’s Y” contrasts. Em-dash clusters. Bullet lists as prose. “Game-changer”, “transformative”, “powerful”, “unlock”, “leverage”, “dive into”. Filler openers (“In today’s world”, “Here’s the thing”). Emoji stacking. Numbered listicles. Motivational closings.
 - Write like the user, not like an assistant helping the user.
@@ -1488,7 +1488,7 @@ if (TRANSPORT_MODE === "http") {
         name: "Quillby",
         description: "Guided Research & Insight Synthesis Tool — RSS content intelligence MCP server. Fetches, scores, and structures articles into content cards for social media posts.",
         url: `${baseUrl}/mcp`,
-        version: "0.3.4",
+        version: "0.4.0",
         capabilities: {
           streaming: true,
           pushNotifications: false,

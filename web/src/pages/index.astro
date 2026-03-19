@@ -30,14 +30,14 @@ const claudeConfigPath = {
 
     <!-- Primary SEO -->
     <title>Quillby — Your AI Content Agent</title>
-    <meta name="description" content="Quillby reads your feeds, filters what matters, and delivers fresh drafts in your voice — every day." />
+    <meta name="description" content="Quillby reads your feeds, filters what matters, and delivers fresh drafts in your voice — with one workspace per project, client, or brand." />
     <link rel="canonical" href="https://quillby.vercel.app/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://quillby.vercel.app/" />
     <meta property="og:title" content="Quillby — Your AI Content Agent" />
-    <meta property="og:description" content="Reads the internet. Filters for you. Writes in your voice." />
+    <meta property="og:description" content="Reads the internet. Filters for you. Writes in your voice, with one workspace per project." />
     <meta property="og:image" content="https://quillby.vercel.app/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -48,7 +48,7 @@ const claudeConfigPath = {
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Quillby — Your AI Content Agent" />
-    <meta name="twitter:description" content="Reads the internet. Filters for you. Writes in your voice." />
+    <meta name="twitter:description" content="Reads the internet. Filters for you. Writes in your voice, with one workspace per project." />
     <meta name="twitter:image" content="https://quillby.vercel.app/og.png" />
     <meta name="twitter:image:alt" content="Quillby — Your AI Content Agent" />
 
@@ -581,13 +581,13 @@ const claudeConfigPath = {
           <em>your next post.</em>
         </h1>
         <p class="hero-sub">
-          Ask Claude <strong>"what should I post today?"</strong> and get a ranked brief and a ready-to-publish draft — sourced from your feeds, filtered for your audience, written in your voice.
+          Ask Claude <strong>"what should I post today?"</strong> and get a ranked brief and a ready-to-publish draft — sourced from your feeds, filtered for your audience, written in your voice. Use one workspace per client, brand, newsletter, or Claude Project.
         </p>
         <div class="hero-actions">
           <a href="#install" class="btn-primary">Install free →</a>
           <a href="https://github.com/vncsleal/quillby" target="_blank" rel="noopener" class="btn-secondary">View on GitHub ↗</a>
         </div>
-        <p class="hero-proof">Free forever · MIT License · No new apps</p>
+        <p class="hero-proof">Free forever · Local-first · Multiple workspaces · No new apps</p>
       </div>
 
       <div class="hero-visual">
@@ -645,9 +645,9 @@ const claudeConfigPath = {
         <div class="steps-row">
           {[
             { n:'01', g:'⬇', title:'Install', desc:'Download the installer for your platform. Quillby wires itself into Claude Desktop automatically — no Terminal required.' },
-            { n:'02', g:'◎', title:'Set up your profile', desc:'Tell Claude your industry, audience, and voice. Two minutes. Saved forever — update anytime you want.' },
-            { n:'03', g:'⌗', title:'Quillby reads the internet', desc:'RSS, Reddit, and Medium feeds are fetched, ranked by relevance to your profile, and surfaced as a content brief.' },
-            { n:'04', g:'↑', title:'Publish in your voice', desc:'Request a draft. Claude writes it from your profile and the sourced article. Edit, approve, post.' },
+            { n:'02', g:'◎', title:'Set up a workspace', desc:'Create one workspace per client, brand, newsletter, or Claude Project. Each one gets its own profile, memory, feeds, and drafts.' },
+            { n:'03', g:'⌗', title:'Quillby reads the internet', desc:'RSS, Reddit, and Medium feeds are fetched, ranked by relevance to that workspace, and surfaced as a content brief.' },
+            { n:'04', g:'↑', title:'Publish in your voice', desc:'Request a draft. Claude writes it from the workspace profile, memory, and sourced article. Edit, approve, post.' },
           ].map(s => (
             <div data-reveal class="step-card">
               <div class="step-num">{s.n}</div>
@@ -698,8 +698,8 @@ const claudeConfigPath = {
             <div class="feat-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </div>
-            <h3 class="feat-title">Works where you work</h3>
-            <p class="feat-desc">No new app. No new tab. Quillby lives inside Claude Desktop — ask it anything in plain language.</p>
+            <h3 class="feat-title">One workspace per context</h3>
+            <p class="feat-desc">Keep client work, personal brand, newsletters, and campaigns separated. Each workspace has its own profile, memory, feeds, and outputs.</p>
           </div>
           <div data-reveal class="feat-card">
             <div class="feat-icon">
@@ -770,9 +770,9 @@ const claudeConfigPath = {
           <div class="install-steps">
             {[
               { n:'1', t:'Install & restart Claude Desktop', b:'Run the installer, then fully quit and reopen Claude Desktop. Quillby loads automatically on startup.' },
-              { n:'2', t:'Run onboarding', b:'Say "Set me up with Quillby" in Claude. It asks a few questions about your industry, audience, and voice — done in two minutes.' },
-              { n:'3', t:'Discover your sources', b:'Quillby finds and subscribes to relevant RSS feeds, Reddit communities, and Medium articles for your niche automatically.' },
-              { n:'4', t:'Ask what to post', b:'Every morning: "what should I post today?" — Quillby reads your feeds, ranks what\'s relevant, and writes a draft ready to publish.' },
+              { n:'2', t:'Create your first workspace', b:'Say "Set me up with Quillby" in Claude. For new users, Quillby creates a default workspace and saves your profile there.' },
+              { n:'3', t:'Discover your sources', b:'Quillby finds and subscribes to relevant RSS feeds, Reddit communities, and Medium articles for that workspace automatically.' },
+              { n:'4', t:'Ask what to post', b:'Every morning: "what should I post today?" — Quillby reads that workspace\'s feeds, ranks what\'s relevant, and writes a draft ready to publish.' },
             ].map(s => (
               <div data-reveal class="install-step">
                 <div class="install-step-num">{s.n}</div>
