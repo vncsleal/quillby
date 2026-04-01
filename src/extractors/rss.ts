@@ -1,8 +1,6 @@
-import * as fs from "fs";
 import Parser from "rss-parser";
 import { CONFIG } from "../config.js";
 import type { RssItem } from "../types.js";
-import { getCurrentWorkspaceId, getWorkspacePaths } from "../workspaces.js";
 
 const parser = new Parser({
   timeout: CONFIG.RSS.TIMEOUT,
@@ -11,29 +9,12 @@ const parser = new Parser({
   },
 });
 
-export function getSeenUrls(): Set<string> {
-  const cacheFile = getWorkspacePaths(getCurrentWorkspaceId()).cache;
-  try {
-    if (fs.existsSync(cacheFile)) {
-      return new Set(JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as string[]);
-    }
-  } catch {
-    // Ignore malformed cache.
-  }
-  return new Set();
-}
-
-export function saveSeenUrls(urls: Set<string>) {
-  const cacheFile = getWorkspacePaths(getCurrentWorkspaceId()).cache;
-  fs.mkdirSync(getWorkspacePaths(getCurrentWorkspaceId()).cacheDir, { recursive: true });
-  fs.writeFileSync(cacheFile, JSON.stringify([...urls], null, 2));
-}
-
 export async function fetchFeeds(
   sources: string[],
+  seenUrls: Set<string>,
   log: (msg: string) => void = () => {}
 ): Promise<RssItem[]> {
-  const seen = getSeenUrls();
+  const seen = seenUrls;
   const allItems: RssItem[] = [];
   let processed = 0;
 

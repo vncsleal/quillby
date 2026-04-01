@@ -2,7 +2,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { ensureDir } from "../config.js";
 import { HarvestBundleSchema, CardInputSchema, type HarvestBundle, type StructureCard, type CardInput } from "../types.js";
-import { saveSeenUrls } from "../extractors/rss.js";
 import { getCurrentWorkspaceId, getWorkspacePaths } from "../workspaces.js";
 
 function createTimestampedOutputDir(): string {
@@ -22,12 +21,8 @@ function createTimestampedOutputDir(): string {
   return outputDir;
 }
 
-export function saveHarvestOutput(rawCards: CardInput[], seenUrls: Set<string>): string {
+export function saveHarvestOutput(rawCards: CardInput[], _seenUrls?: Set<string>): string {
   const paths = getWorkspacePaths(getCurrentWorkspaceId());
-  // Only persist if the caller actually passed URLs — calling with new Set()
-  // would silently wipe the cache. Seen URLs should be saved by the fetch step.
-  if (seenUrls.size > 0) saveSeenUrls(seenUrls);
-
   const outputDir = createTimestampedOutputDir();
   const dateLabel = new Date().toLocaleDateString("en-US", {
     year: "numeric",

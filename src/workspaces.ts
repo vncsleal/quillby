@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import { z } from "zod";
 import { CONFIG, ensureDataDir, ensureDir } from "./config.js";
 import {
   TypedMemorySchema,
@@ -62,79 +61,8 @@ function writeWorkspaceMeta(meta: WorkspaceMetadata) {
   fs.writeFileSync(paths.meta, JSON.stringify(parsed, null, 2));
 }
 
-function migrateLegacyStateIntoDefaultWorkspace() {
-  const legacyFiles = [
-    CONFIG.FILES.CONTEXT,
-    CONFIG.FILES.MEMORY,
-    CONFIG.FILES.SOURCES,
-    CONFIG.FILES.CACHE,
-  ];
-  const hasLegacyState = legacyFiles.some((file) => fs.existsSync(file));
-  if (!hasLegacyState || listWorkspaces().length > 0) return;
-
-  const createdAt = nowIso();
-  createWorkspace({
-    id: DEFAULT_WORKSPACE_ID,
-    name: "Default Workspace",
-    description: "Migrated from Quillby's legacy single-profile storage.",
-    makeCurrent: true,
-    createdAt,
-  });
-
-  const paths = getWorkspacePaths(DEFAULT_WORKSPACE_ID);
-  if (fs.existsSync(CONFIG.FILES.CONTEXT) && !fs.existsSync(paths.context)) {
-    fs.copyFileSync(CONFIG.FILES.CONTEXT, paths.context);
-  }
-  if (fs.existsSync(CONFIG.FILES.SOURCES) && !fs.existsSync(paths.sources)) {
-    fs.copyFileSync(CONFIG.FILES.SOURCES, paths.sources);
-  }
-  if (fs.existsSync(CONFIG.FILES.CACHE) && !fs.existsSync(paths.cache)) {
-    ensureDir(path.dirname(paths.cache));
-    fs.copyFileSync(CONFIG.FILES.CACHE, paths.cache);
-  }
-
-  if (fs.existsSync(CONFIG.FILES.MEMORY) && !fs.existsSync(paths.typedMemory)) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(CONFIG.FILES.MEMORY, "utf-8"));
-      const legacy = z.object({ voiceExamples: z.array(z.string()).default([]) }).parse(raw);
-      saveTypedMemory(DEFAULT_WORKSPACE_ID, {
-        voiceExamples: legacy.voiceExamples,
-      });
-    } catch {
-      saveTypedMemory(DEFAULT_WORKSPACE_ID, {});
-    }
-  }
-
-  const legacyOutputDir = path.join(CONFIG.DATA_DIR, "output");
-  if (fs.existsSync(legacyOutputDir) && fs.readdirSync(paths.outputDir).length === 0) {
-    for (const entry of fs.readdirSync(legacyOutputDir, { withFileTypes: true })) {
-      const source = path.join(legacyOutputDir, entry.name);
-      const target = path.join(paths.outputDir, entry.name);
-      if (entry.isDirectory()) {
-        fs.cpSync(source, target, { recursive: true });
-      } else if (entry.isSymbolicLink()) {
-        try {
-          const linked = fs.readlinkSync(source);
-          fs.symlinkSync(linked, target);
-        } catch {
-          // ignore unreadable legacy symlinks
-        }
-      } else if (entry.isFile()) {
-        fs.copyFileSync(source, target);
-      }
-    }
-  }
-
-  const legacyLatest = path.join(paths.outputDir, "latest", "structures.json");
-  if (fs.existsSync(legacyLatest) && !fs.existsSync(paths.latestHarvestPointer)) {
-    ensureDir(paths.cacheDir);
-    fs.writeFileSync(paths.latestHarvestPointer, legacyLatest);
-  }
-}
-
 export function ensureWorkspaceSystem() {
   ensureDataDir();
-  migrateLegacyStateIntoDefaultWorkspace();
   if (listWorkspaces().length === 0) {
     createWorkspace({
       id: DEFAULT_WORKSPACE_ID,
@@ -246,6 +174,12 @@ export function touchWorkspace(workspaceId: string) {
   writeWorkspaceMeta({ ...existing, updatedAt: nowIso() });
 }
 
+// ─── Context ──────────────────────────────────────────────────────────────────
+
+export function workspaceContextExists(workspaceId: string): boolean {
+  return fs.existsSync(getWorkspacePaths(workspaceId).context);
+}
+
 export function loadWorkspaceContext(workspaceId: string): UserContext | null {
   const file = getWorkspacePaths(workspaceId).context;
   if (!fs.existsSync(file)) return null;
@@ -262,6 +196,8 @@ export function saveWorkspaceContext(workspaceId: string, ctx: UserContext) {
   fs.writeFileSync(file, JSON.stringify(UserContextSchema.parse(ctx), null, 2));
   touchWorkspace(workspaceId);
 }
+
+// ─── Typed memory ─────────────────────────────────────────────────────────────
 
 export function loadTypedMemory(workspaceId: string): TypedMemory {
   const file = getWorkspacePaths(workspaceId).typedMemory;
@@ -293,4 +229,54 @@ export function appendTypedMemory(
   const deduped = [...new Set([...entries, ...existing].map((entry) => entry.trim()).filter(Boolean))];
   const next = limit != null ? deduped.slice(0, limit) : deduped;
   saveTypedMemory(workspaceId, { [memoryType]: next } as Partial<TypedMemory>);
+}
+
+// ─── Sources ──────────────────────────────────────────────────────────────────
+
+export function loadSources(workspaceId: string): string[] {
+  const file = getWorkspacePaths(workspaceId).sources;
+  if (!fs.existsSync(file)) return [];
+  return fs
+    .readFileSync(file, "utf-8")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith("#"));
+}
+
+export function appendSources(
+  workspaceId: string,
+  newUrls: string[]
+): { added: number; skipped: number } {
+  const sourcesFile = getWorkspacePaths(workspaceId).sources;
+  const existing = new Set(loadSources(workspaceId));
+  const toAdd = newUrls.filter((u) => u.trim() && !existing.has(u.trim()));
+
+  if (toAdd.length === 0) return { added: 0, skipped: newUrls.length };
+
+  ensureDir(getWorkspacePaths(workspaceId).root);
+  const header = !fs.existsSync(sourcesFile) ? "# Quillby RSS Sources\n\n" : "";
+  fs.appendFileSync(sourcesFile, header + toAdd.join("\n") + "\n");
+  touchWorkspace(workspaceId);
+
+  return { added: toAdd.length, skipped: newUrls.length - toAdd.length };
+}
+
+// ─── Seen URL cache ───────────────────────────────────────────────────────────
+
+export function getSeenUrls(workspaceId: string): Set<string> {
+  const cacheFile = getWorkspacePaths(workspaceId).cache;
+  try {
+    if (fs.existsSync(cacheFile)) {
+      return new Set(JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as string[]);
+    }
+  } catch {
+    // Ignore malformed cache.
+  }
+  return new Set();
+}
+
+export function saveSeenUrls(workspaceId: string, urls: Set<string>) {
+  const paths = getWorkspacePaths(workspaceId);
+  ensureDir(paths.cacheDir);
+  fs.writeFileSync(paths.cache, JSON.stringify([...urls], null, 2));
 }

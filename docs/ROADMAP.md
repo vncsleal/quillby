@@ -17,7 +17,9 @@ This keeps the product stable while moving from a local-first tool to a more nat
 - One Quillby workspace per Claude Project, client, brand, or campaign.
 - Keep structured editorial state in Quillby workspaces.
 - Keep large background docs in Claude Project knowledge.
-- Preserve local-first operation and backward compatibility.
+- Preserve local-first operation.
+- Prefer simplicity over backward compatibility in early personal versions.
+- Avoid runtime legacy migration layers, placeholders, and mock compatibility paths unless they are actively needed.
 - Do not force hosted storage on users who want local-only usage.
 
 ## Current State
@@ -29,7 +31,7 @@ This branch upgrades Quillby to a local multi-workspace model:
 - Dynamic Quillby home via `QUILLBY_HOME`
 - Workspace-scoped storage under `~/.quillby/workspaces/<workspaceId>/`
 - Current-workspace selection
-- Legacy single-profile migration into a `default` workspace
+- Clean-start workspace model (no automatic legacy runtime migration)
 - Typed memory buckets:
   - voice examples
   - style rules
@@ -54,13 +56,11 @@ Goal: make the workspace model the new stable local foundation.
 Scope:
 
 - ship multi-workspace local storage
-- migrate legacy users safely into `default`
 - keep local stdio MCP as the primary distribution
 - update docs and tests around workspace-based usage
 
 Exit criteria:
 
-- migration works without data loss
 - workspace switching is clear in Claude
 - tests pass against isolated local state
 

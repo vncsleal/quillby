@@ -1,62 +1,10 @@
-import * as fs from "fs";
-import {
-  appendTypedMemory,
-  getCurrentWorkspaceId,
-  getCurrentWorkspace,
-  getWorkspacePaths,
-  loadTypedMemory,
-  loadWorkspaceContext,
-  saveTypedMemory,
-  saveWorkspaceContext,
-} from "../workspaces.js";
-import {
-  UserContextSchema,
-  type UserContext,
-  UserMemorySchema,
-  type UserMemory,
-  type TypedMemory,
-} from "../types.js";
-
-export function contextExists(): boolean {
-  return fs.existsSync(getWorkspacePaths(getCurrentWorkspaceId()).context);
-}
-
-export function loadContext(): UserContext | null {
-  return loadWorkspaceContext(getCurrentWorkspaceId());
-}
-
-export function saveContext(ctx: UserContext): void {
-  saveWorkspaceContext(getCurrentWorkspaceId(), UserContextSchema.parse(ctx));
-}
-
-export function memoryExists(): boolean {
-  return fs.existsSync(getWorkspacePaths(getCurrentWorkspaceId()).typedMemory);
-}
-
-export function loadMemory(): UserMemory {
-  const typed = loadTypedMemory(getCurrentWorkspaceId());
-  return UserMemorySchema.parse({ voiceExamples: typed.voiceExamples });
-}
-
-export function saveMemory(mem: UserMemory): void {
-  const validated = UserMemorySchema.parse(mem);
-  saveTypedMemory(getCurrentWorkspaceId(), {
-    voiceExamples: validated.voiceExamples.slice(0, 10),
-  });
-}
-
-export function appendVoiceExample(text: string): void {
-  appendTypedMemory(getCurrentWorkspaceId(), "voiceExamples", [text], 10);
-}
-
-export function loadTypedWorkspaceMemory(): TypedMemory {
-  return loadTypedMemory(getCurrentWorkspaceId());
-}
+import { getCurrentWorkspace } from "../workspaces.js";
+import type { UserContext, TypedMemory } from "../types.js";
 
 /**
- * Render the user context as a concise text block for LLM system prompts.
+ * Render the user context as a concise text block for LLM prompts.
  */
-export function contextToPromptText(ctx: UserContext, memory?: UserMemory, typedMemory?: TypedMemory): string {
+export function contextToPromptText(ctx: UserContext, typedMemory?: TypedMemory): string {
   const lines = [
     `Workspace: ${getCurrentWorkspace().name}`,
     ctx.name ? `Name: ${ctx.name}` : null,
@@ -72,25 +20,32 @@ export function contextToPromptText(ctx: UserContext, memory?: UserMemory, typed
     .filter(Boolean)
     .join("\n");
 
-  const examples =
-    memory?.voiceExamples?.length
-      ? `\n\nVoice examples:\n${memory.voiceExamples.map((e, i) => `[${i + 1}] ${e}`).join("\n\n")}`
-      : "";
+  if (!typedMemory) return lines;
 
-  const typedBlocks = typedMemory
-    ? [
-        typedMemory.styleRules.length ? `\n\nStyle rules:\n${typedMemory.styleRules.map((e, i) => `[${i + 1}] ${e}`).join("\n")}` : "",
-        typedMemory.audienceInsights.length ? `\n\nAudience insights:\n${typedMemory.audienceInsights.map((e, i) => `[${i + 1}] ${e}`).join("\n")}` : "",
-        typedMemory.doNotSay.length ? `\n\nDo not say:\n${typedMemory.doNotSay.map((e, i) => `[${i + 1}] ${e}`).join("\n")}` : "",
-        typedMemory.campaignContext.length ? `\n\nCampaign context:\n${typedMemory.campaignContext.map((e, i) => `[${i + 1}] ${e}`).join("\n")}` : "",
-        typedMemory.sourcePreferences.length ? `\n\nSource preferences:\n${typedMemory.sourcePreferences.map((e, i) => `[${i + 1}] ${e}`).join("\n")}` : "",
-      ].join("")
-    : "";
+  const blocks = [
+    typedMemory.voiceExamples.length
+      ? `\n\nVoice examples:\n${typedMemory.voiceExamples.map((e, i) => `[${i + 1}] ${e}`).join("\n\n")}`
+      : "",
+    typedMemory.styleRules.length
+      ? `\n\nStyle rules:\n${typedMemory.styleRules.map((e, i) => `[${i + 1}] ${e}`).join("\n")}`
+      : "",
+    typedMemory.audienceInsights.length
+      ? `\n\nAudience insights:\n${typedMemory.audienceInsights.map((e, i) => `[${i + 1}] ${e}`).join("\n")}`
+      : "",
+    typedMemory.doNotSay.length
+      ? `\n\nDo not say:\n${typedMemory.doNotSay.map((e, i) => `[${i + 1}] ${e}`).join("\n")}`
+      : "",
+    typedMemory.campaignContext.length
+      ? `\n\nCampaign context:\n${typedMemory.campaignContext.map((e, i) => `[${i + 1}] ${e}`).join("\n")}`
+      : "",
+    typedMemory.sourcePreferences.length
+      ? `\n\nSource preferences:\n${typedMemory.sourcePreferences.map((e, i) => `[${i + 1}] ${e}`).join("\n")}`
+      : "",
+  ].join("");
 
-  return lines + examples + typedBlocks;
+  return lines + blocks;
 }
 
-/** The onboarding prompt text — used as an MCP prompt. */
 export const ONBOARDING_PROMPT = `You are helping a new Quillby user set up the content intelligence profile for their current Quillby workspace.
 
 Ask the following questions conversationally — you don't need to number them or ask them all at once. Use natural follow-up based on their answers.

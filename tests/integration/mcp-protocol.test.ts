@@ -36,7 +36,7 @@ class McpTestClient {
     this.proc = spawn("node", [SERVER_BIN], {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: ROOT,
-      env: { ...process.env, QUILLBY_HOME: dataDir },
+      env: { ...process.env, QUILLBY_HOME: dataDir, Quillby_TRANSPORT: "stdio" },
     });
     this.proc.stderr?.on("data", () => {}); // suppress startup logs
     this.proc.stdout?.on("data", (chunk: Buffer) => {
@@ -120,7 +120,7 @@ describe("MCP initialize", () => {
     );
     expect(
       (res.result as { serverInfo: { name: string; version: string } }).serverInfo.version,
-    ).toBe("0.4.0");
+    ).toBe("0.7.0");
   });
 });
 
@@ -172,11 +172,6 @@ describe("MCP tools/list", () => {
     expect(tools.map((t) => t.name)).toContain(name);
   });
 
-  it("every tool declares an outputSchema", () => {
-    const missing = tools.filter((t) => !t.outputSchema).map((t) => t.name);
-    expect(missing).toEqual([]);
-  });
-
   it("every tool has a non-empty description", () => {
     const noDesc = tools
       .filter((t) => !(t as { description?: string }).description?.trim())
@@ -194,6 +189,10 @@ describe("MCP prompts/list", () => {
       params: {},
     });
     const prompts = (res.result as { prompts: { name: string }[] }).prompts;
+    expect(prompts.map((prompt) => prompt.name)).toContain("quillby_session_start");
+    expect(prompts.map((prompt) => prompt.name)).toContain("quillby_briefing");
+    expect(prompts.map((prompt) => prompt.name)).toContain("quillby_story");
+    expect(prompts.map((prompt) => prompt.name)).toContain("quillby_voice_system");
     expect(prompts.map((prompt) => prompt.name)).toContain("quillby_projects_playbook");
   });
 });

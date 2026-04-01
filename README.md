@@ -77,7 +77,13 @@ If you work across multiple contexts, start by creating or selecting a workspace
 
 > "Switch Quillby to my newsletter workspace"
 
-**Get today's content ideas:**
+**Open the saved Briefing instantly:**
+
+> "Open Quillby"
+
+> "Open my daily brief"
+
+**Refresh today's content ideas when you want a new run:**
 
 > "Give me my Quillby daily brief"
 
@@ -109,7 +115,7 @@ Quillby saves it inside the current workspace. Every future post in that workspa
 
 To check what Quillby knows about your style:
 
-> "Show me my Quillby voice memory"
+> "Show me my Quillby Voice System"
 
 You can also save typed editorial memory:
 
@@ -127,9 +133,11 @@ You can also save typed editorial memory:
 **Adding sources:**
 > "Find good news sources for my Quillby topics and add them"
 
+**Use natural language.** Good prompts sound like: "Open Quillby", "What's worth writing about today?", "Open the second story and draft it for LinkedIn", "Show me my Voice System."
+
 **Being specific gets better results.** "Write a 150-word conversational LinkedIn post from idea 2" works much better than "write a post."
 
-**Use Claude Projects with Quillby.** Keep structured state in Quillby, and keep long reference material in Claude Project knowledge.
+**Use Claude Projects with Quillby.** Keep structured state in Quillby, keep long reference material in Claude Project knowledge, and let Claude render the working surfaces as native artifacts.
 
 **Your content stays on your computer.** Your profile, memory, drafts, and content ideas are saved locally under `~/.quillby/workspaces/`. Nothing is sent to any external service beyond the AI client you choose to use.
 
@@ -139,7 +147,7 @@ You can also save typed editorial memory:
 
 **Quillby doesn't appear in Claude** — Make sure you fully quit and reopened Claude Desktop after saving the config. Check the path in the config matches exactly what the terminal printed (no extra spaces or missing characters).
 
-**"No context saved" error** — Run onboarding for the current workspace: *"Set me up with Quillby"* or *"Run the quillby_onboarding prompt"*
+**"No context saved" error** — Start setup for the current workspace: *"Set me up with Quillby"*
 
 **"No feeds configured" error** — Ask Claude to find sources: *"Find RSS feeds for my topics and add them to Quillby"*
 

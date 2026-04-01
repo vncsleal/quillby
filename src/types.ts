@@ -16,14 +16,6 @@ export const UserContextSchema = z.object({
 
 export type UserContext = z.infer<typeof UserContextSchema>;
 
-// ─── User memory (grows over time, agent-written) ─────────────────────────────
-
-export const UserMemorySchema = z.object({
-  voiceExamples: z.array(z.string()).default([]).describe("Approved posts in their voice — accumulated over sessions"),
-});
-
-export type UserMemory = z.infer<typeof UserMemorySchema>;
-
 export const TypedMemorySchema = z.object({
   voiceExamples: z.array(z.string()).default([]),
   styleRules: z.array(z.string()).default([]),

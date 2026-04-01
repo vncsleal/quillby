@@ -1,4 +1,4 @@
-import { fetchFeeds, getSeenUrls } from "../extractors/rss.js";
+import { fetchFeeds } from "../extractors/rss.js";
 import { fetchReddit } from "../extractors/reddit.js";
 import { enrichArticle } from "../extractors/content.js";
 import { mapWithConcurrency } from "../llm.js";
@@ -12,6 +12,7 @@ import { CONFIG } from "../config.js";
  */
 async function fetchAllSources(
   sources: string[],
+  seenUrls: Set<string>,
   log: (msg: string) => void
 ): Promise<RssItem[]> {
   const rssSources: string[] = [];
@@ -25,13 +26,11 @@ async function fetchAllSources(
   const results: RssItem[] = [];
 
   if (rssSources.length > 0) {
-    const rssItems = await fetchFeeds(rssSources, log);
+    const rssItems = await fetchFeeds(rssSources, seenUrls, log);
     results.push(...rssItems);
   }
 
   for (const src of redditSources) {
-    // reddit://r/marketing → subreddit = "marketing", sort = "hot"
-    // reddit://r/marketing/top → subreddit = "marketing", sort = "top"
     const path = src.replace("reddit://r/", "").trim();
     const [subreddit, sort = "hot"] = path.split("/");
     if (subreddit) {
@@ -55,24 +54,25 @@ async function fetchAllSources(
  */
 export async function fetchArticles(
   sources: string[],
+  seenUrls: Set<string>,
   log: (msg: string) => void = () => {},
   slim = false
 ): Promise<{ articles: EnrichedArticle[]; seenUrls: Set<string> }> {
   log(`Fetching from ${sources.length} source(s)...`);
-  const items = await fetchAllSources(sources, log);
-  const seenUrls = getSeenUrls();
-  items.forEach((item) => seenUrls.add(item.link));
+  const items = await fetchAllSources(sources, seenUrls, log);
+  const updatedSeenUrls = new Set(seenUrls);
+  items.forEach((item) => updatedSeenUrls.add(item.link));
 
   if (items.length === 0) {
     log("No new items found.");
-    return { articles: [], seenUrls };
+    return { articles: [], seenUrls: updatedSeenUrls };
   }
 
   if (slim) {
     log(`Found ${items.length} items. Slim mode — skipping content fetch.`);
     return {
       articles: items.map((item) => ({ ...item, enrichedContent: "" })),
-      seenUrls,
+      seenUrls: updatedSeenUrls,
     };
   }
 
@@ -99,7 +99,7 @@ export async function fetchArticles(
   );
 
   log(`Fetch complete. ${articles.length} articles ready for analysis.`);
-  return { articles, seenUrls };
+  return { articles, seenUrls: updatedSeenUrls };
 }
 
 /**

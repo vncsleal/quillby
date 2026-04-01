@@ -1,52 +1,26 @@
 import "dotenv/config";
 import * as http from "node:http";
-import { randomUUID, timingSafeEqual } from "node:crypto";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { randomUUID } from "node:crypto";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "../auth.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
   type Tool,
   type Resource,
   type Prompt,
 } from "@modelcontextprotocol/sdk/types.js";
 import { UserContextSchema, CardInputSchema } from "../types.js";
 import {
-  loadContext,
-  saveContext,
-  contextExists,
   contextToPromptText,
   ONBOARDING_PROMPT,
-  loadMemory,
-  appendVoiceExample,
-  loadTypedWorkspaceMemory,
 } from "../agents/onboard.js";
-import { loadSources, appendSources } from "../agents/discover.js";
 import { fetchArticles, preScoreArticles } from "../agents/harvest.js";
 import { getGoogleNewsFeeds, getMediumTagFeeds, getFeedlyFeeds } from "../agents/seeds.js";
 import { PLATFORM_GUIDES } from "../agents/compose.js";
 import { enrichArticle } from "../extractors/content.js";
-import { saveSeenUrls } from "../extractors/rss.js";
-import {
-  loadLatestHarvest,
-  latestHarvestExists,
-  saveHarvestOutput,
-  saveDraft,
-} from "../output/structures.js";
-import {
-  appendTypedMemory,
-  createWorkspace,
-  getCurrentWorkspace,
-  getCurrentWorkspaceId,
-  listWorkspaces,
-  loadWorkspace,
-  setCurrentWorkspace,
-} from "../workspaces.js";
+import { getHostedUserStorage, storage, type WorkspaceStorage } from "../storage.js";
 
 const MEMORY_TYPES = {
   voice_examples: "voiceExamples",
@@ -60,24 +34,24 @@ const MEMORY_TYPES = {
 
 type MemoryTypeInput = keyof typeof MEMORY_TYPES;
 
-const server = new Server(
-  { name: "quillby-mcp", version: "0.4.0" },
-  { capabilities: { tools: {}, resources: {}, prompts: {}, logging: {} } }
-);
+const SERVER_INFO = { name: "quillby-mcp", version: "0.8.0" } as const;
 
-function log(message: string) {
-  server.sendLoggingMessage({ level: "info", data: message }).catch(() => {});
+function createMcpServer(): McpServer {
+  return new McpServer(
+    SERVER_INFO,
+    { capabilities: { tools: {}, resources: {}, prompts: {}, logging: {} } }
+  );
 }
 
 /**
  * Ask the host model to run inference via MCP Sampling.
  * Returns null if the host does not support Sampling — callers degrade gracefully.
  */
-async function sample(prompt: string, maxTokens = 4096): Promise<string | null> {
-  const caps = server.getClientCapabilities();
+async function sample(server: McpServer, prompt: string, maxTokens = 4096): Promise<string | null> {
+  const caps = server.server.getClientCapabilities();
   if (!caps?.sampling) return null;
   try {
-    const result = await server.createMessage({
+    const result = await server.server.createMessage({
       messages: [{ role: "user", content: { type: "text", text: prompt } }],
       maxTokens,
     });
@@ -287,7 +261,7 @@ const TOOLS: Tool[] = [
   {
     name: "quillby_daily_brief",
     description:
-      "The daily entry point. Two-pass pipeline: fetch headlines slim → Sampling semantically scores them against your profile → deep-read only the top picks → Sampling generates full cards. One call, full brief. Returns a ranked content brief with angles and hooks ready. Requires Sampling.",
+      "Build the ranked Quillby Briefing for the active workspace. Claude should use this behind the scenes to open or refresh the user's daily editorial artifact. Requires Sampling.",
     annotations: { readOnlyHint: false },
     outputSchema: { type: "object" as const },
     inputSchema: {
@@ -339,7 +313,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "quillby_list_cards",
-    description: "List saved structure cards from the latest harvest.",
+    description: "List saved story candidates from the latest harvest. Best used behind the scenes when Claude is opening or updating a Story artifact.",
     annotations: { readOnlyHint: true, idempotentHint: true },
     outputSchema: { type: "object" as const },
     inputSchema: {
@@ -352,7 +326,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "quillby_get_card",
-    description: "Get full details of a structure card by ID.",
+    description: "Get full details for one saved story candidate by ID. Best used behind the scenes when Claude is opening or updating a Story artifact.",
     annotations: { readOnlyHint: true, idempotentHint: true },
     outputSchema: { type: "object" as const },
     inputSchema: {
@@ -424,7 +398,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "quillby_get_memory",
-    description: "Read typed memory from the current workspace.",
+    description: "Read typed memory from the current workspace. Claude should use this behind the scenes when opening or updating the Voice System artifact.",
     annotations: { readOnlyHint: true, idempotentHint: true },
     outputSchema: { type: "object" as const },
     inputSchema: {
@@ -478,25 +452,42 @@ const PROMPTS: Prompt[] = [
     description: "Guide the user through initial Quillby setup to collect their content creator profile.",
   },
   {
-    name: "quillby_workflow",
-    description: "Full Quillby workflow: onboard, discover feeds, fetch, analyze, generate posts.",
+    name: "quillby_session_start",
+    description: "Open Quillby the Claude-native way: onboarding if needed, otherwise create or update the Briefing artifact.",
+  },
+  {
+    name: "quillby_briefing",
+    description: "How Claude should create and update the Quillby Briefing artifact.",
+  },
+  {
+    name: "quillby_story",
+    description: "How Claude should open and update a Quillby Story artifact from a ranked item.",
+  },
+  {
+    name: "quillby_voice_system",
+    description: "How Claude should open and update the Quillby Voice System artifact from workspace memory.",
   },
   {
     name: "quillby_projects_playbook",
-    description: "How to align Quillby workspaces with Claude Projects.",
+    description: "How to align Quillby workspaces, Claude Projects, and native Artifacts.",
   },
 ];
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const { name, arguments: args = {} } = req.params;
+async function handleToolCall(
+  server: McpServer,
+  storage: WorkspaceStorage,
+  name: string,
+  args: Record<string, unknown> = {}
+) {
+  const log = (message: string) => {
+    server.sendLoggingMessage({ level: "info", data: message }).catch(() => {});
+  };
 
   try {
     switch (name) {
       case "quillby_list_workspaces": {
-        const currentWorkspaceId = getCurrentWorkspaceId();
-        const workspaces = listWorkspaces().map((workspace) => ({
+        const currentWorkspaceId = await storage.getCurrentWorkspaceId();
+        const workspaces = (await storage.listWorkspaces()).map((workspace) => ({
           ...workspace,
           current: workspace.id === currentWorkspaceId,
         }));
@@ -513,7 +504,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           description?: string;
           makeCurrent?: boolean;
         };
-        const workspace = createWorkspace({
+        const workspace = await storage.createWorkspace({
           id: workspaceId,
           name: workspaceName,
           description,
@@ -527,7 +518,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       case "quillby_select_workspace": {
         const { workspaceId } = args as { workspaceId: string };
-        const workspace = setCurrentWorkspace(workspaceId);
+        const workspace = await storage.setCurrentWorkspace(workspaceId);
         return {
           content: [{ type: "text" as const, text: `Current workspace set to "${workspace.name}" (${workspace.id}).` }],
           structuredContent: workspace,
@@ -535,35 +526,39 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
 
       case "quillby_get_workspace": {
-        const workspaceId = (args as { workspaceId?: string }).workspaceId ?? getCurrentWorkspaceId();
-        const workspace = loadWorkspace(workspaceId);
+        const currentId = await storage.getCurrentWorkspaceId();
+        const workspaceId = (args as { workspaceId?: string }).workspaceId ?? currentId;
+        const workspace = await storage.loadWorkspace(workspaceId);
         if (!workspace) {
           return { content: [{ type: "text" as const, text: `Workspace "${workspaceId}" not found.` }], structuredContent: { error: "not_found", workspaceId } };
         }
-        const isCurrent = workspace.id === getCurrentWorkspaceId();
+        const isCurrent = workspace.id === currentId;
+        const ctx = isCurrent ? await storage.loadContext() : null;
+        const mem = isCurrent ? await storage.loadTypedMemory() : null;
+        const feedCount = isCurrent ? (await storage.loadSources()).length : null;
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
               workspace,
               current: isCurrent,
-              context: isCurrent ? loadContext() : null,
-              memory: isCurrent ? loadTypedWorkspaceMemory() : null,
-              feedCount: isCurrent ? loadSources().length : null,
+              context: ctx,
+              memory: mem,
+              feedCount,
             }, null, 2),
           }],
           structuredContent: {
             workspace,
             current: isCurrent,
-            context: isCurrent ? loadContext() : null,
-            memory: isCurrent ? loadTypedWorkspaceMemory() : null,
-            feedCount: isCurrent ? loadSources().length : null,
+            context: ctx,
+            memory: mem,
+            feedCount,
           },
         };
       }
 
       case "quillby_onboard": {
-        const caps = server.getClientCapabilities();
+        const caps = server.server.getClientCapabilities();
         if (!caps?.elicitation?.form) {
           // Client doesn't support form elicitation — return the static onboarding prompt
           return {
@@ -573,7 +568,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         // Step 1 — Identity
-        const s1 = await server.elicitInput({
+        const s1 = await server.server.elicitInput({
           message: "Let's set up your Quillby profile. Step 1 of 3: who are you?",
           requestedSchema: {
             type: "object" as const,
@@ -593,7 +588,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         // Step 2 — Topics & audience
-        const s2 = await server.elicitInput({
+        const s2 = await server.server.elicitInput({
           message: "Step 2 of 3: what do you write about, and who reads it?",
           requestedSchema: {
             type: "object" as const,
@@ -613,7 +608,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         // Step 3 — Voice & platforms
-        const s3 = await server.elicitInput({
+        const s3 = await server.server.elicitInput({
           message: "Step 3 of 3: how do you write, and where do you publish?",
           requestedSchema: {
             type: "object" as const,
@@ -653,9 +648,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           platforms: toStrArr(s3.content.platforms),
           excludeTopics: s3.content.excludeTopics ? splitCSV(s3.content.excludeTopics) : [],
         });
-        saveContext(onboardCtx);
+        await storage.saveContext(onboardCtx);
 
-        const summary = `Workspace: ${getCurrentWorkspace().name}\n\nRole: ${onboardCtx.role} in ${onboardCtx.industry}\nTopics: ${onboardCtx.topics.join(", ")}\nPlatforms: ${onboardCtx.platforms.join(", ")}\nVoice: ${onboardCtx.voice}\n\nNext: call quillby_discover_feeds to set up your RSS sources.`;
+        const onboardWs = await storage.getCurrentWorkspace();
+        const summary = `Workspace: ${onboardWs.name}\n\nRole: ${onboardCtx.role} in ${onboardCtx.industry}\nTopics: ${onboardCtx.topics.join(", ")}\nPlatforms: ${onboardCtx.platforms.join(", ")}\nVoice: ${onboardCtx.voice}\n\nNext: call quillby_discover_feeds to set up your RSS sources.`;
         return {
           content: [{ type: "text" as const, text: summary }],
           structuredContent: { saved: true, profile: onboardCtx as unknown as Record<string, unknown> },
@@ -664,49 +660,48 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       case "quillby_set_context": {
         const context = UserContextSchema.parse((args as { context: unknown }).context);
-        saveContext(context);
+        await storage.saveContext(context);
+        const setCtxWs = await storage.getCurrentWorkspace();
         return {
-          content: [{ type: "text" as const, text: `Context saved for workspace "${getCurrentWorkspace().name}". Role: ${context.role}. Topics: ${context.topics.join(", ")}. Platforms: ${context.platforms.join(", ")}.` }],
-          structuredContent: { saved: true, workspaceId: getCurrentWorkspaceId(), role: context.role, topics: context.topics, platforms: context.platforms },
+          content: [{ type: "text" as const, text: `Context saved for workspace "${setCtxWs.name}". Role: ${context.role}. Topics: ${context.topics.join(", ")}. Platforms: ${context.platforms.join(", ")}.` }],
+          structuredContent: { saved: true, workspaceId: setCtxWs.id, role: context.role, topics: context.topics, platforms: context.platforms },
         };
       }
 
       case "quillby_get_context": {
-        if (!contextExists()) {
-          return { content: [{ type: "text" as const, text: "No context saved. Run quillby_onboarding first." }], structuredContent: { error: "no_context" } };
+        if (!await storage.contextExists()) {
+          return { content: [{ type: "text" as const, text: "No context saved for this workspace yet. Start by setting up Quillby for it." }], structuredContent: { error: "no_context" } };
         }
-        const ctxData = loadContext()!;
+        const ctxData = (await storage.loadContext())!;
+        const getCtxWs = await storage.getCurrentWorkspace();
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ workspace: getCurrentWorkspace(), context: ctxData }, null, 2) }],
-          structuredContent: { workspace: getCurrentWorkspace(), context: ctxData },
+          content: [{ type: "text" as const, text: JSON.stringify({ workspace: getCtxWs, context: ctxData }, null, 2) }],
+          structuredContent: { workspace: getCtxWs, context: ctxData },
         };
       }
 
       case "quillby_add_feeds": {
         const { urls } = args as { urls: string[] };
-        const result = appendSources(urls);
-        const totalAfterAdd = loadSources().length;
+        const result = await storage.appendSources(urls);
+        const totalAfterAdd = (await storage.loadSources()).length;
         return {
-          content: [{ type: "text" as const, text: `Added ${result.added} feed(s). Skipped ${result.skipped} duplicate(s). Total: ${totalAfterAdd}. Use quillby_fetch_articles to pull articles.` }],
+          content: [{ type: "text" as const, text: `Added ${result.added} feed(s). Skipped ${result.skipped} duplicate(s). Total: ${totalAfterAdd}. Quillby is ready to open or refresh the workspace Briefing.` }],
           structuredContent: { added: result.added, skipped: result.skipped, total: totalAfterAdd },
         };
       }
 
       case "quillby_discover_feeds": {
-        const ctx = contextExists() ? loadContext() : null;
+        const ctxExists = await storage.contextExists();
+        const ctx = ctxExists ? await storage.loadContext() : null;
         const { topics: topicOverride, locale = "en-US", country = "US" } = args as { topics?: string[]; locale?: string; country?: string };
         const topics: string[] = topicOverride?.length ? topicOverride : (ctx?.topics ?? []);
         if (topics.length === 0) {
-          return { content: [{ type: "text" as const, text: "No topics in context. Run quillby_onboarding first." }], structuredContent: { error: "no_topics" } };
+          return { content: [{ type: "text" as const, text: "No topics are saved for this workspace yet. Update the Quillby setup first." }], structuredContent: { error: "no_topics" } };
         }
-        // 1. Google News RSS — one feed per topic, real-time, multilingual, any language
         const googleUrls = getGoogleNewsFeeds(topics, locale, country);
-        // 2. Medium tag feeds — professional articles on any topic (healthcare, law, fashion, etc.)
         const mediumUrls = getMediumTagFeeds(topics);
-        // 3. Feedly search — curated publication feeds per topic
         const feedlyUrls = await getFeedlyFeeds(topics, 3);
-        // 4. Sampling — ask the model for relevant Reddit communities and niche RSS feeds
-        const samplingAvailable = !!(server.getClientCapabilities()?.sampling);
+        const samplingAvailable = !!(server.server.getClientCapabilities()?.sampling);
         let samplingUrls: string[] = [];
         if (samplingAvailable) {
           const samplingPrompt = `The user is a content creator covering these topics: ${topics.join(", ")}.
@@ -718,7 +713,7 @@ Suggest niche content sources that broad news feeds would miss. For each suggest
 Pick communities and publications that match the industry, not tech/startup defaults. A clothing boutique owner needs fashion/retail communities. A health professional needs medical/wellness sources. A lawyer needs legal industry feeds.
 
 Return ONLY a JSON array of strings. 10 items max. No explanation.`;
-          const raw = await sample(samplingPrompt, 600);
+          const raw = await sample(server, samplingPrompt, 600);
           if (raw) {
             try {
               const match = raw.match(/\[.*\]/s);
@@ -736,7 +731,7 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
           }
         }
         const allUrls = [...new Set([...googleUrls, ...mediumUrls, ...feedlyUrls, ...samplingUrls])];
-        const result = appendSources(allUrls);
+        const result = await storage.appendSources(allUrls);
         const discoverResult = {
           topics,
           googleNewsFeeds: googleUrls.length,
@@ -745,7 +740,7 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
           samplingFeeds: samplingUrls.length,
           added: result.added,
           skipped: result.skipped,
-          totalFeeds: loadSources().length,
+          totalFeeds: (await storage.loadSources()).length,
         };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(discoverResult, null, 2) }],
@@ -754,7 +749,7 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
       }
 
       case "quillby_list_feeds": {
-        const sources = loadSources();
+        const sources = await storage.loadSources();
         const listFeedsResult = { count: sources.length, feeds: sources };
         return {
           content: [{ type: "text" as const, text: sources.length ? JSON.stringify(listFeedsResult, null, 2) : "No feeds configured. Use quillby_add_feeds." }],
@@ -764,14 +759,15 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
 
       case "quillby_fetch_articles": {
         const { sources: overrideSources, slim } = args as { sources?: string[]; slim?: boolean };
-        const sources = overrideSources?.length ? overrideSources : loadSources();
+        const sources = overrideSources?.length ? overrideSources : await storage.loadSources();
         if (sources.length === 0) {
           return { content: [{ type: "text" as const, text: "No RSS sources configured. Use quillby_discover_feeds to add curated feeds, or quillby_add_feeds with manual URLs." }], structuredContent: { error: "no_sources" } };
         }
-        const ctx = contextExists() ? loadContext() : null;
+        const ctxExistsFetch = await storage.contextExists();
+        const ctx = ctxExistsFetch ? await storage.loadContext() : null;
         const topics: string[] = ctx?.topics ?? [];
-        const { articles, seenUrls } = await fetchArticles(sources, log, slim ?? false);
-        saveSeenUrls(seenUrls);
+        const { articles, seenUrls } = await fetchArticles(sources, await storage.getSeenUrls(), log, slim ?? false);
+        await storage.saveSeenUrls(seenUrls);
         const scored = topics.length > 0 ? preScoreArticles(articles, topics) : articles.map((a) => ({ ...a, _preScore: 0 }));
         const output = slim
           ? scored.map(({ enrichedContent: _ec, ...rest }: { enrichedContent?: unknown; [k: string]: unknown }) => rest)
@@ -798,16 +794,16 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
         if (cards.length === 0) {
           return { content: [{ type: "text" as const, text: "No cards provided." }], structuredContent: { saved: 0 } };
         }
-        const outputDir = saveHarvestOutput(cards, new Set());
+        const outputDir = await storage.saveHarvestOutput(cards, new Set());
         return { content: [{ type: "text" as const, text: `Saved ${cards.length} card(s) to ${outputDir}.` }], structuredContent: { saved: cards.length, outputDir } };
       }
 
       case "quillby_list_cards": {
-        if (!latestHarvestExists()) {
+        if (!await storage.latestHarvestExists()) {
           return { content: [{ type: "text" as const, text: "No harvest found. Fetch articles and save cards first." }], structuredContent: { error: "no_harvest" } };
         }
         const { limit, minScore } = args as { limit?: number; minScore?: number };
-        const bundle = loadLatestHarvest();
+        const bundle = await storage.loadLatestHarvest();
         let cards = bundle.cards;
         if (minScore != null) {
           cards = cards.filter((c) => (c.relevanceScore ?? 0) >= minScore);
@@ -823,25 +819,23 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
       case "quillby_analyze_articles": {
         const { topN: rawTopN } = args as { topN?: number };
         const topN = rawTopN ?? 15;
-        if (!contextExists()) {
-          return { content: [{ type: "text" as const, text: "No context saved. Run quillby_onboarding first." }], structuredContent: { error: "no_context" } };
+        if (!await storage.contextExists()) {
+          return { content: [{ type: "text" as const, text: "No context saved for this workspace yet. Set up Quillby first." }], structuredContent: { error: "no_context" } };
         }
-        const ctx = loadContext()!;
-        const sources = loadSources();
+        const ctx = (await storage.loadContext())!;
+        const sources = await storage.loadSources();
         if (sources.length === 0) {
           return { content: [{ type: "text" as const, text: "No RSS sources configured. Use quillby_discover_feeds first." }], structuredContent: { error: "no_sources" } };
         }
-        const samplingAvailable = !!(server.getClientCapabilities()?.sampling);
+        const samplingAvailable = !!(server.server.getClientCapabilities()?.sampling);
         if (!samplingAvailable) {
-          return { content: [{ type: "text" as const, text: "Sampling not available in this client. Use quillby_fetch_articles + quillby_read_article + quillby_save_cards for manual analysis." }], structuredContent: { error: "sampling_unavailable" } };
+          return { content: [{ type: "text" as const, text: "This Quillby feature needs Sampling support from the host client. Open Quillby in a Sampling-capable Claude client to generate the Briefing." }], structuredContent: { error: "sampling_unavailable" } };
         }
-        // Fetch slim articles
-        const { articles, seenUrls } = await fetchArticles(sources, log, true);
-        saveSeenUrls(seenUrls);
+        const { articles, seenUrls } = await fetchArticles(sources, await storage.getSeenUrls(), log, true);
+        await storage.saveSeenUrls(seenUrls);
         if (articles.length === 0) {
           return { content: [{ type: "text" as const, text: "No new articles found. All items have been seen before." }], structuredContent: { error: "no_new_articles" } };
         }
-        // Semantic scoring via Sampling (keyword fallback)
         log(`Scoring ${articles.length} headlines semantically...`);
         const headlineList = articles
           .map((a, i) => `${i}: ${a.title} — ${a.snippet ?? ""}`)
@@ -859,8 +853,7 @@ Headlines (index: title — snippet):
 ${headlineList}
 
 Return ONLY a JSON array of integers — the indices of the top ${topN} most relevant headlines, ordered best first. No explanation.`;
-        const fbScoreSignalAnalyze = "";
-        const scoreRaw = await sample(scorePrompt + fbScoreSignalAnalyze, 400);
+        const scoreRaw = await sample(server, scorePrompt, 400);
         let topIndices: number[] = [];
         if (scoreRaw) {
           try {
@@ -880,25 +873,18 @@ Return ONLY a JSON array of integers — the indices of the top ${topN} most rel
             .filter((i) => i >= 0);
         }
         const topArticles = topIndices.map((i) => articles[i]).filter(Boolean);
-        // Enrich top articles
         const enriched: { title: string; url: string; snippet: string; content: string | null }[] = [];
         for (const article of topArticles) {
           const content = await enrichArticle(article.link, article.title ?? "");
           enriched.push({ title: article.title ?? "", url: article.link, snippet: article.snippet ?? "", content });
         }
-        // Build analysis prompt
         const articleBlobs = enriched.map((a, i) =>
           `## Article ${i + 1}: ${a.title}\nURL: ${a.url}\n\n${a.content ?? a.snippet}`
         ).join("\n\n---\n\n");
-        const memory = loadMemory();
-        const typedMemory = loadTypedWorkspaceMemory();
-        const voiceBlock = memory.voiceExamples.length
-          ? `\n\nUser voice examples (study and match this style — do NOT smooth it out):\n${memory.voiceExamples.map((e, i) => `[${i + 1}]\n${e}`).join("\n\n")}`
-          : `\n\nUser voice: ${ctx.voice ?? "direct and authentic"}`;
-
+        const typedMemoryAnalyze = await storage.loadTypedMemory();
         const analysisPrompt = `You are an expert content strategist. Analyze these articles for a ${ctx.role} in ${ctx.industry ?? "their industry"}.
 
-${contextToPromptText(ctx, memory, typedMemory)}${voiceBlock}
+${contextToPromptText(ctx, typedMemoryAnalyze)}
 
 ${articleBlobs}
 
@@ -913,7 +899,7 @@ For each article, produce a JSON object with these fields:
 - keyQuotes (array of 1-2 memorable lines or stats from the article)
 
 Return ONLY a valid JSON array of these objects, no prose.`;
-        const raw = await sample(analysisPrompt, 2000);
+        const raw = await sample(server, analysisPrompt, 2000);
         if (!raw) {
           return { content: [{ type: "text" as const, text: "Sampling returned no result. Try again or use quillby_fetch_articles + quillby_save_cards manually." }], structuredContent: { error: "sampling_failed" } };
         }
@@ -926,7 +912,7 @@ Return ONLY a valid JSON array of these objects, no prose.`;
           return { content: [{ type: "text" as const, text: `Sampling returned malformed JSON. Raw response:\n${raw}` }], structuredContent: { error: "malformed_json", raw } };
         }
         const parsed = cards.map((c) => CardInputSchema.parse(c));
-        const outputDir = saveHarvestOutput(parsed, seenUrls);
+        const outputDir = await storage.saveHarvestOutput(parsed, seenUrls);
         const analyzeResult = { analyzed: parsed.length, outputDir, cards: parsed.map((c) => ({ title: c.title, relevanceScore: c.relevanceScore, thesis: c.thesis })) };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(analyzeResult, null, 2) }],
@@ -937,23 +923,23 @@ Return ONLY a valid JSON array of these objects, no prose.`;
       case "quillby_daily_brief": {
         const { topN: rawTopN } = args as { topN?: number };
         const topN = rawTopN ?? 10;
-        if (!contextExists()) {
-          return { content: [{ type: "text" as const, text: "No context saved. Run quillby_onboarding first." }], structuredContent: { error: "no_context" } };
+        if (!await storage.contextExists()) {
+          return { content: [{ type: "text" as const, text: "No context saved for this workspace yet. Set up Quillby first." }], structuredContent: { error: "no_context" } };
         }
-        const ctx = loadContext()!;
-        const sources = loadSources();
+        const ctx = (await storage.loadContext())!;
+        const sources = await storage.loadSources();
         if (sources.length === 0) {
           return { content: [{ type: "text" as const, text: "No RSS sources configured. Use quillby_discover_feeds first." }], structuredContent: { error: "no_sources" } };
         }
-        const samplingAvailable = !!(server.getClientCapabilities()?.sampling);
+        const samplingAvailable = !!(server.server.getClientCapabilities()?.sampling);
         if (!samplingAvailable) {
-          return { content: [{ type: "text" as const, text: "Sampling not available in this client. Use quillby_analyze_articles or the manual workflow instead." }], structuredContent: { error: "sampling_unavailable" } };
+          return { content: [{ type: "text" as const, text: "quillby_daily_brief requires Sampling support from the host client. Use quillby_fetch_articles + quillby_analyze_articles in a Sampling-capable client." }], structuredContent: { error: "sampling_unavailable" } };
         }
 
         // Pass 1: headlines only — fast, no content fetching
         log(`Daily brief: fetching headlines from ${sources.length} feeds...`);
-        const { articles: slimArticles, seenUrls } = await fetchArticles(sources, log, true);
-        saveSeenUrls(seenUrls);
+        const { articles: slimArticles, seenUrls } = await fetchArticles(sources, await storage.getSeenUrls(), log, true);
+        await storage.saveSeenUrls(seenUrls);
         if (slimArticles.length === 0) {
           return { content: [{ type: "text" as const, text: "No new articles found. All items have been seen before." }], structuredContent: { error: "no_new_articles" } };
         }
@@ -977,8 +963,7 @@ ${headlineList}
 
 Return ONLY a JSON array of integers — the indices of the top ${topN} most relevant headlines, ordered best first. No explanation.`;
 
-        const fbScoreSignal = "";
-        const scoreRaw = await sample(scorePrompt + fbScoreSignal, 400);
+        const scoreRaw = await sample(server, scorePrompt, 400);
         let topIndices: number[] = [];
         if (scoreRaw) {
           try {
@@ -1019,10 +1004,9 @@ Return ONLY a JSON array of integers — the indices of the top ${topN} most rel
 
         // Pass 3: Sampling generates full cards in one call
         log("Generating content cards via Sampling...");
-        const memory3 = loadMemory();
-        const typedMemory3 = loadTypedWorkspaceMemory();
-        const voiceBlock3 = memory3.voiceExamples.length
-          ? `\n\nVoice examples — match this style, amplify the strongest quirks:\n${memory3.voiceExamples.map((e, i) => `[${i + 1}]\n${e}`).join("\n\n")}`
+        const typedMemory3 = await storage.loadTypedMemory();
+        const voiceBlock3 = typedMemory3.voiceExamples.length
+          ? `\n\nVoice examples — match this style, amplify the strongest quirks:\n${typedMemory3.voiceExamples.map((e, i) => `[${i + 1}]\n${e}`).join("\n\n")}`
           : `\n\nVoice: ${ctx.voice ?? "direct and authentic"}`;
         const articleBlobs = enriched
           .map((a, i) => `## Article ${i + 1}: ${a.title}\nURL: ${a.link}\n\n${a.content ?? a.snippet}`)
@@ -1031,7 +1015,7 @@ Return ONLY a JSON array of integers — the indices of the top ${topN} most rel
           ctx.industry ?? "their industry"
         }.
 
-${contextToPromptText(ctx, memory3, typedMemory3)}${voiceBlock3}
+${contextToPromptText(ctx, typedMemory3)}${voiceBlock3}
 
 ${articleBlobs}
 
@@ -1050,7 +1034,7 @@ For each article produce a JSON object with these exact fields:
 
 Return ONLY a valid JSON array of these objects, no prose.`;
 
-        const cardRaw = await sample(cardPrompt, 4000);
+        const cardRaw = await sample(server, cardPrompt, 4000);
         if (!cardRaw) {
           return { content: [{ type: "text" as const, text: "Sampling returned no result for card generation. Try again." }], structuredContent: { error: "sampling_failed" } };
         }
@@ -1064,8 +1048,8 @@ Return ONLY a valid JSON array of these objects, no prose.`;
         }
 
         const briefCards = rawBriefCards.map((c) => CardInputSchema.parse(c));
-        saveHarvestOutput(briefCards, seenUrls);
-        const savedBundle = loadLatestHarvest();
+        await storage.saveHarvestOutput(briefCards, seenUrls);
+        const savedBundle = await storage.loadLatestHarvest();
         const briefResult = {
           date: new Date().toISOString().split("T")[0],
           feedsChecked: sources.length,
@@ -1091,11 +1075,11 @@ Return ONLY a valid JSON array of these objects, no prose.`;
       }
 
       case "quillby_get_card": {
-        if (!latestHarvestExists()) {
+        if (!await storage.latestHarvestExists()) {
           return { content: [{ type: "text" as const, text: "No harvest found." }], structuredContent: { error: "no_harvest" } };
         }
         const { cardId } = args as { cardId: number };
-        const bundle = loadLatestHarvest();
+        const bundle = await storage.loadLatestHarvest();
         const card = bundle.cards.find((c) => c.id === cardId);
         if (!card) {
           return { content: [{ type: "text" as const, text: `Card #${cardId} not found. Available: ${bundle.cards.map((c) => c.id).join(", ")}.` }], structuredContent: { error: "not_found", cardId } };
@@ -1105,8 +1089,8 @@ Return ONLY a valid JSON array of these objects, no prose.`;
 
       case "quillby_save_draft": {
         const { content, platform, cardId, addToVoiceExamples } = args as { content: string; platform: string; cardId?: number; addToVoiceExamples?: boolean };
-        const filePath = saveDraft(content, platform, cardId);
-        if (addToVoiceExamples) appendVoiceExample(content);
+        const filePath = await storage.saveDraft(content, platform, cardId);
+        if (addToVoiceExamples) await storage.appendTypedMemory("voiceExamples", [content], 10);
         const savedMsg = addToVoiceExamples
           ? `Draft saved to ${filePath}. Added to voice memory.`
           : `Draft saved to ${filePath}.`;
@@ -1115,39 +1099,37 @@ Return ONLY a valid JSON array of these objects, no prose.`;
 
       case "quillby_generate_post": {
         const { cardId: genCardId, platform: genPlatform, angle } = args as { cardId: number; platform: string; angle?: string };
-        if (!latestHarvestExists()) {
-          return { content: [{ type: "text" as const, text: "No harvest found. Run quillby_daily_brief or quillby_analyze_articles first." }], structuredContent: { error: "no_harvest" } };
+        if (!await storage.latestHarvestExists()) {
+          return { content: [{ type: "text" as const, text: "No Briefing is available for this workspace yet. Refresh Quillby first." }], structuredContent: { error: "no_harvest" } };
         }
-        if (!contextExists()) {
-          return { content: [{ type: "text" as const, text: "No context saved. Run quillby_onboarding first." }], structuredContent: { error: "no_context" } };
+        if (!await storage.contextExists()) {
+          return { content: [{ type: "text" as const, text: "No context saved for this workspace yet. Set up Quillby first." }], structuredContent: { error: "no_context" } };
         }
-        const genSamplingAvailable = !!(server.getClientCapabilities()?.sampling);
+        const genSamplingAvailable = !!(server.server.getClientCapabilities()?.sampling);
         if (!genSamplingAvailable) {
           return { content: [{ type: "text" as const, text: "Sampling not available. Write the post yourself and use quillby_save_draft to persist it." }], structuredContent: { error: "sampling_unavailable" } };
         }
-        const genBundle = loadLatestHarvest();
+        const genBundle = await storage.loadLatestHarvest();
         const genCard = genBundle.cards.find((c) => c.id === genCardId);
         if (!genCard) {
           return { content: [{ type: "text" as const, text: `Card #${genCardId} not found. Available: ${genBundle.cards.map((c) => c.id).join(", ")}.` }], structuredContent: { error: "not_found", cardId: genCardId } };
         }
-        const genCtx = loadContext()!;
-        const currentMemory = loadMemory();
-        const typedMemory = loadTypedWorkspaceMemory();
+        const genCtx = (await storage.loadContext())!;
+        const typedMemoryGen = await storage.loadTypedMemory();
         const guide = PLATFORM_GUIDES[genPlatform];
         if (!guide) {
           return { content: [{ type: "text" as const, text: `Unknown platform: "${genPlatform}". Available: ${Object.keys(PLATFORM_GUIDES).join(", ")}.` }], structuredContent: { error: "unknown_platform", platform: genPlatform } };
         }
         const chosenAngle = angle ?? genCard.angleOptions?.[0] ?? genCard.thesis;
-        const genVoiceBlock = currentMemory.voiceExamples.length
-          ? `Voice examples — read these carefully. Match the register, rhythm, and vocabulary exactly. Oversteer on the strongest quirks:\n${currentMemory.voiceExamples.map((e, i) => `[${i + 1}]\n${e}`).join("\n\n")}`
+        const genVoiceBlock = typedMemoryGen.voiceExamples.length
+          ? `Voice examples — read these carefully. Match the register, rhythm, and vocabulary exactly. Oversteer on the strongest quirks:\n${typedMemoryGen.voiceExamples.map((e, i) => `[${i + 1}]\n${e}`).join("\n\n")}`
           : `Voice description: ${genCtx.voice ?? "direct and authentic"}`;
-        const genAnglesHint = "";
         const generatePrompt = `You are writing a ${genPlatform} post for ${
           genCtx.name ?? "a content creator"
         } — a ${genCtx.role} in ${genCtx.industry ?? "their industry"}.
 
 ## User profile
-${contextToPromptText(genCtx, currentMemory, typedMemory)
+${contextToPromptText(genCtx, typedMemoryGen)
   .split("\n")
   .map((line) => `- ${line}`)
   .join("\n")}
@@ -1164,7 +1146,7 @@ Transposability hint: ${genCard.transposabilityHint ?? ""}
 Hook options (pick the best or write a stronger one): ${genCard.hookOptions?.join(" | ") ?? ""}
 
 ## Platform guide
-${guide}${genAnglesHint}
+${guide}
 
 ## Absolute rules — any violation produces an unusable draft
 - NEVER use: "It's not X, it's Y" contrasts, em-dash clusters (1 max per post), bullet lists masquerading as prose
@@ -1175,11 +1157,11 @@ ${guide}${genAnglesHint}
 - NEVER smooth out the rough edges — the rough edges are the voice
 - Write the post only. No intro sentence, no commentary, no "Here is the post:".`;
         log(`Generating ${genPlatform} post for card #${genCardId}...`);
-        const draft = await sample(generatePrompt, 2000);
+        const draft = await sample(server, generatePrompt, 2000);
         if (!draft) {
           return { content: [{ type: "text" as const, text: "Sampling returned no result. Try again." }], structuredContent: { error: "sampling_failed" } };
         }
-        const draftPath = saveDraft(draft.trim(), genPlatform, genCardId);
+        const draftPath = await storage.saveDraft(draft.trim(), genPlatform, genCardId);
         const generateResult = { platform: genPlatform, cardId: genCardId, angle: chosenAngle, savedTo: draftPath, draft: draft.trim() };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(generateResult, null, 2) }],
@@ -1193,31 +1175,31 @@ ${guide}${genAnglesHint}
           memoryType?: MemoryTypeInput;
         };
         const resolvedType = MEMORY_TYPES[memoryType];
-        appendTypedMemory(
-          getCurrentWorkspaceId(),
+        await storage.appendTypedMemory(
           resolvedType,
           entries,
           resolvedType === "voiceExamples" ? 10 : undefined
         );
+        const remWs = await storage.getCurrentWorkspace();
         return {
-          content: [{ type: "text" as const, text: `Added ${entries.length} item(s) to ${memoryType} in workspace "${getCurrentWorkspace().name}".` }],
-          structuredContent: { added: entries.length, memoryType, workspaceId: getCurrentWorkspaceId() },
+          content: [{ type: "text" as const, text: `Added ${entries.length} item(s) to ${memoryType} in workspace "${remWs.name}".` }],
+          structuredContent: { added: entries.length, memoryType, workspaceId: remWs.id },
         };
       }
 
       case "quillby_get_memory": {
         const { memoryType } = args as { memoryType?: MemoryTypeInput };
-        const typedMemory = loadTypedWorkspaceMemory();
+        const [typedMemoryGet, getMemWs] = await Promise.all([storage.loadTypedMemory(), storage.getCurrentWorkspace()]);
         if (!memoryType) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ workspace: getCurrentWorkspace(), memory: typedMemory }, null, 2) }],
-            structuredContent: { workspace: getCurrentWorkspace(), memory: typedMemory },
+            content: [{ type: "text" as const, text: JSON.stringify({ workspace: getMemWs, memory: typedMemoryGet }, null, 2) }],
+            structuredContent: { workspace: getMemWs, memory: typedMemoryGet },
           };
         }
         const resolvedType = MEMORY_TYPES[memoryType];
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ workspace: getCurrentWorkspace(), memoryType, entries: typedMemory[resolvedType] }, null, 2) }],
-          structuredContent: { workspace: getCurrentWorkspace(), memoryType, entries: typedMemory[resolvedType] },
+          content: [{ type: "text" as const, text: JSON.stringify({ workspace: getMemWs, memoryType, entries: typedMemoryGet[resolvedType] }, null, 2) }],
+          structuredContent: { workspace: getMemWs, memoryType, entries: typedMemoryGet[resolvedType] },
         };
       }
 
@@ -1228,51 +1210,46 @@ ${guide}${genAnglesHint}
     const message = err instanceof Error ? err.message : String(err);
     return { content: [{ type: "text" as const, text: `Error: ${message}` }], isError: true, structuredContent: { error: message } };
   }
-});
+}
 
-server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: RESOURCES }));
-
-server.setRequestHandler(ReadResourceRequestSchema, async (req) => {
-  const { uri } = req.params;
+async function readResource(uri: string, storage: WorkspaceStorage) {
   switch (uri) {
     case "quillby://workspace/current": {
-      const text = JSON.stringify(getCurrentWorkspace(), null, 2);
+      const text = JSON.stringify(await storage.getCurrentWorkspace(), null, 2);
       return { contents: [{ uri, mimeType: "application/json", text }] };
     }
     case "quillby://context": {
-      const text = contextExists()
-        ? JSON.stringify(loadContext(), null, 2)
-        : JSON.stringify({ error: "No context saved. Run quillby_onboarding first." });
+      const text = await storage.contextExists()
+        ? JSON.stringify(await storage.loadContext(), null, 2)
+        : JSON.stringify({ error: "No context saved for this workspace yet. Set up Quillby first." });
       return { contents: [{ uri, mimeType: "application/json", text }] };
     }
     case "quillby://memory": {
-      const text = JSON.stringify(loadTypedWorkspaceMemory(), null, 2);
+      const text = JSON.stringify(await storage.loadTypedMemory(), null, 2);
       return { contents: [{ uri, mimeType: "application/json", text }] };
     }
     case "quillby://harvest/latest": {
-      const text = latestHarvestExists()
-        ? JSON.stringify(loadLatestHarvest(), null, 2)
-        : JSON.stringify({ error: "No harvest yet. Run quillby_fetch_articles and quillby_save_cards." });
+      const text = await storage.latestHarvestExists()
+        ? JSON.stringify(await storage.loadLatestHarvest(), null, 2)
+        : JSON.stringify({ error: "No Briefing has been generated for this workspace yet." });
       return { contents: [{ uri, mimeType: "application/json", text }] };
     }
     case "quillby://feeds": {
-      const sources = loadSources();
+      const sources = await storage.loadSources();
       return { contents: [{ uri, mimeType: "text/plain", text: sources.length ? sources.join("\n") : "# No feeds configured." }] };
     }
     default:
       throw new Error(`Unknown resource: ${uri}`);
   }
-});
+}
 
-server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: PROMPTS }));
-
-server.setRequestHandler(GetPromptRequestSchema, async (req) => {
-  const { name } = req.params;
+async function getPrompt(name: string, storage: WorkspaceStorage, args?: Record<string, string>) {
   switch (name) {
     case "quillby_onboarding": {
-      const exists = contextExists();
-      const existing = exists ? loadContext() : null;
-      const typedMemory = loadTypedWorkspaceMemory();
+      const exists = await storage.contextExists();
+      const existing = exists ? await storage.loadContext() : null;
+      const typedMemory = await storage.loadTypedMemory();
+      const currentWorkspace = await storage.getCurrentWorkspace();
       return {
         description: "Quillby onboarding",
         messages: [
@@ -1281,7 +1258,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (req) => {
             content: {
               type: "text" as const,
               text: exists
-                ? `I have a saved profile in workspace "${getCurrentWorkspace().name}":\n\n${contextToPromptText(existing!, loadMemory(), typedMemory)}\n\nUpdate it?`
+                ? `I have a saved profile in workspace "${currentWorkspace.name}":\n\n${contextToPromptText(existing!, typedMemory)}\n\nUpdate it?`
                 : "Set up Quillby for my content workflow.",
             },
           },
@@ -1298,85 +1275,169 @@ server.setRequestHandler(GetPromptRequestSchema, async (req) => {
       };
     }
 
-    case "quillby_workflow": {
-      const platformGuideText = Object.entries(PLATFORM_GUIDES)
-        .map(([p, g]) => `**${p}**: ${g}`)
-        .join("\n\n");
+    case "quillby_session_start": {
+      const workspace = await storage.getCurrentWorkspace();
+      const hasContext = await storage.contextExists();
+      const hasFeeds = (await storage.loadSources()).length > 0;
+      const hasBriefing = await storage.latestHarvestExists();
+      const sessionText = `## Quillby Session Start
 
-      const ctx = contextExists() ? loadContext() : null;
-      const mem = loadMemory();
-      const typed = loadTypedWorkspaceMemory();
-      const voiceSection = mem.voiceExamples.length
-        ? `### Voice reference (read before writing any draft)
+Workspace: ${workspace.name} (${workspace.id})
 
-These are approved posts that define the target voice. Match the register, rhythm, and directness. Oversteer — if it feels too contained, it's wrong.
+Open Quillby as a Claude-native editorial workspace, not as a menu of tools.
 
-${mem.voiceExamples.map((e, i) => `**Example ${i + 1}:**\n\`\`\`\n${e}\n\`\`\``).join("\n\n")}`
-        : ctx?.voice
-        ? `### Voice\n\n${ctx.voice}\n\nNo approved examples yet. Use quillby_remember to add voice examples.`
-        : "### Voice\n\nNo profile saved. Run quillby_onboarding first.";
+Behavior contract:
+- Treat the user's first Quillby-related message as intent to open Quillby.
+- Keep tool names invisible unless the user is explicitly debugging.
+- Prefer native Claude Artifacts over long chat replies.
+- Reuse or update an existing Quillby artifact in the current conversation when it already matches the active workspace.
+- For requests like "Open Quillby", "Open my daily brief", or "Show me my briefing", prefer quillby_open_briefing over quillby_daily_brief.
+- Do not improvise a manual tool-by-tool fallback in chat.
+- Do not narrate tool execution with phrases like "Let me...", "I'll fetch...", or "I'll work around this manually."
 
-      const workflowText = `## Quillby Workflow
+Session flow:
+1. Inspect the active workspace state.
+2. If no profile exists yet, guide setup conversationally, save it, and make sure sources are configured.
+3. If a profile and saved brief already exist, call quillby_open_briefing immediately so the user gets a stable Briefing UI without waiting.
+4. Refresh the Briefing only when it is stale, missing, or the user explicitly asks for a fresh run.
+5. If there is no saved Briefing and Sampling is unavailable, explain that Quillby cannot generate a fresh Briefing in this client and stop. Do not simulate the pipeline manually.
+6. Let the user move naturally from Briefing to Story, Draft, or Voice System through plain-language requests.
 
-Workspace: ${getCurrentWorkspace().name} (${getCurrentWorkspaceId()})
+Current workspace state:
+- Profile saved: ${hasContext ? "yes" : "no"}
+- Feeds configured: ${hasFeeds ? "yes" : "no"}
+- Briefing available: ${hasBriefing ? "yes" : "no"}
 
-Quillby handles file I/O and data plumbing. All editorial judgment lives in the model.
-
-### Setup (once)
-1. If you are working across clients, brands, or campaigns, call quillby_create_workspace first.
-2. Run quillby_onboarding prompt, collect answers, call quillby_set_context.
-3. Call quillby_discover_feeds — it matches your topics against a curated seed list and optionally expands it via Sampling. No manual feed hunting needed.
-
-### Daily workflow — Automated (when Sampling is available)
-1. Call quillby_analyze_articles (limit: 8–12). Quillby fetches articles, pre-scores by topic overlap, enriches the top N, sends them to you via Sampling, and saves the resulting cards automatically.
-2. Call quillby_list_cards (minScore: 7) to see the strongest cards.
-3. Call quillby_get_card for the card you want to post about.
-4. Write the post using the platform guide below.
-5. Call quillby_save_draft to persist it.
-
-### Daily workflow — Manual (when Sampling is unavailable)
-1. Call quillby_fetch_articles with slim=true — returns a headline index sorted by pre-score. Fast, no content fetching.
-2. Read quillby://context. Identify the most promising articles by title and _preScore.
-3. Call quillby_read_article for each article you want to read in full.
-4. Score relevance yourself. Generate card fields.
-5. Call quillby_save_cards with your analyzed cards.
-6. Call quillby_get_card for the card you want to post about.
-7. Write the post using the platform guide below.
-8. Call quillby_save_draft to persist it.
-
-### Voice rules (apply before writing any draft)
-- Read the active workspace memory from quillby://memory. Focus first on voice_examples, then apply style_rules, do_not_say, audience_insights, and campaign_context. Identify the 2-3 strongest stylistic quirks and amplify them — oversteer, not understeer.
-- Use typed memory buckets: style_rules, do_not_say, audience_insights, campaign_context.
-- BANNED: “It’s not X, it’s Y” contrasts. Em-dash clusters. Bullet lists as prose. “Game-changer”, “transformative”, “powerful”, “unlock”, “leverage”, “dive into”. Filler openers (“In today’s world”, “Here’s the thing”). Emoji stacking. Numbered listicles. Motivational closings.
-- Write like the user, not like an assistant helping the user.
-
-${voiceSection}
-
-### Typed memory snapshot
-\`\`\`json
-${JSON.stringify(typed, null, 2)}
-\`\`\`
-
-### Platform guides
-
-${platformGuideText}`;
+User-facing expectations:
+- The user should be able to say things like "Open Quillby", "What's worth writing about today?", "Draft the second one for LinkedIn", or "Show me my Voice System".
+- Do not answer with a command list.
+- Do not ask the user to memorize tool names.`;
 
       return {
-        description: "Quillby workflow",
+        description: "Quillby session start",
         messages: [
-          { role: "user" as const, content: { type: "text" as const, text: "How do I use Quillby?" } },
-          { role: "assistant" as const, content: { type: "text" as const, text: workflowText } },
+          { role: "user" as const, content: { type: "text" as const, text: "Open Quillby for this workspace." } },
+          { role: "assistant" as const, content: { type: "text" as const, text: sessionText } },
+        ],
+      };
+    }
+
+    case "quillby_briefing": {
+      const workspace = await storage.getCurrentWorkspace();
+      const briefingText = `## Quillby Briefing Artifact
+
+Use the Briefing as Quillby's default opening artifact.
+
+Artifact rules:
+- Create or update a native Claude Artifact called "Briefing".
+- If a matching Briefing artifact for workspace "${workspace.name}" is already active in this conversation, update it instead of creating a duplicate.
+- Keep the interaction natural. The artifact is the surface; chat is the control layer.
+
+What the Briefing should show:
+- active workspace
+- editorial focus and audience
+- source freshness
+- strongest current opportunities
+- whether drafts or memory need attention
+- clear next actions the user can ask for in plain language
+
+How to drive it:
+- Use Quillby's saved workspace state and latest harvest data.
+- For "open" intents, use quillby_open_briefing first so the UI appears immediately from cached local state.
+- Present top opportunities as editorial decisions, not raw database rows.
+- When the user asks to go deeper, transition into a Story artifact or produce a Draft directly.
+- If Briefing generation is not possible in the current host, explain the capability gap plainly and stop instead of listing workaround steps or simulating the pipeline manually.
+
+Tone rules:
+- No emojis.
+- No progress narration.
+- No operator language such as "Let me", "Now I'll", or "I'm going to fetch".
+- Speak as Quillby opening an editorial surface, not as an assistant running commands.`;
+
+      return {
+        description: "Quillby Briefing artifact",
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: "Show me the Quillby Briefing." } },
+          { role: "assistant" as const, content: { type: "text" as const, text: briefingText } },
+        ],
+      };
+    }
+
+    case "quillby_story": {
+      const storyText = `## Quillby Story Artifact
+
+Open a Story artifact when the user chooses one opportunity from the Briefing or asks for detail on a specific idea.
+
+Artifact rules:
+- Create or update a native Claude Artifact called "Story".
+- Reuse the active Story artifact when the user is iterating on the same item.
+- Keep tool details hidden; the user should feel like they are exploring one editorial opportunity, not querying a database.
+
+What the Story artifact should show:
+- source and why it matters now
+- thesis
+- relevance to the workspace
+- best angles and hooks
+- what would make a strong draft
+
+How to move forward:
+- If the user asks to write, transition directly into a Draft.
+- If the user asks why it ranked highly, explain the editorial reasoning in natural language.
+- If the user asks to save a learning, update the Voice System memory behind the scenes.`;
+
+      return {
+        description: "Quillby Story artifact",
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: "Open the strongest Quillby story." } },
+          { role: "assistant" as const, content: { type: "text" as const, text: storyText } },
+        ],
+      };
+    }
+
+    case "quillby_voice_system": {
+      const voiceSystemText = `## Quillby Voice System Artifact
+
+Open the Voice System artifact when the user asks how Quillby writes, what it has learned, or wants to adjust voice memory.
+
+Artifact rules:
+- Create or update a native Claude Artifact called "Voice System".
+- Reuse the active Voice System artifact when the user is editing rules or reviewing examples.
+- Keep the artifact editorial and practical, not diagnostic.
+
+What the Voice System should show:
+- workspace role and audience
+- current voice summary
+- approved voice examples
+- style rules
+- banned phrasing
+- audience insights
+- campaign context when present
+
+How to use it:
+- When the user says "remember this", save it in the right memory bucket behind the scenes.
+- When the user asks why a draft feels wrong, compare the draft against the Voice System and explain the mismatch clearly.
+- When the user improves a rule, update the artifact so it stays current in the conversation.`;
+
+      return {
+        description: "Quillby Voice System artifact",
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: "Show me the Quillby Voice System." } },
+          { role: "assistant" as const, content: { type: "text" as const, text: voiceSystemText } },
         ],
       };
     }
 
     case "quillby_projects_playbook": {
-      const playbook = `## Quillby + Claude Projects
+      const playbook = `## Quillby + Claude Projects + Artifacts
 
 1. Create one Quillby workspace per Claude Project, client, brand, or campaign.
 2. Keep structured profile, feeds, typed memory, harvests, and drafts in Quillby.
 3. Keep long background documents inside Claude Project knowledge.
-4. Use memory buckets deliberately:
+4. Let Claude render Quillby's working surfaces as native Artifacts:
+   - Briefing for the daily opening view
+   - Story for one ranked opportunity
+   - Voice System for editorial memory and rules
+5. Use memory buckets deliberately:
    - voice_examples for approved writing samples
    - style_rules for positive editorial constraints
    - do_not_say for banned phrasing
@@ -1395,7 +1456,30 @@ ${platformGuideText}`;
     default:
       throw new Error(`Unknown prompt: ${name}`);
   }
-});
+}
+
+function registerMcpHandlers(server: McpServer, storage: WorkspaceStorage): void {
+  for (const tool of TOOLS) {
+    server.registerTool(tool.name, {
+      description: tool.description,
+      annotations: tool.annotations,
+      _meta: (tool as Tool & { _meta?: Record<string, unknown> })._meta,
+    }, (args: unknown) => handleToolCall(server, storage, tool.name, (args ?? {}) as Record<string, unknown>));
+  }
+
+  for (const resource of RESOURCES) {
+    server.registerResource(resource.name, resource.uri, {
+      description: resource.description,
+      mimeType: resource.mimeType,
+    }, async () => readResource(resource.uri, storage));
+  }
+
+  for (const prompt of PROMPTS) {
+    server.registerPrompt(prompt.name, {
+      description: prompt.description,
+    }, (args) => getPrompt(prompt.name, storage, args as Record<string, string> | undefined));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Scheduled autonomous harvest
@@ -1403,12 +1487,12 @@ ${platformGuideText}`;
 
 async function runScheduledHarvest(): Promise<void> {
   const tag = "[quillby-schedule]";
-  if (!contextExists()) {
+  if (!await storage.contextExists()) {
     process.stderr.write(`${tag} No profile saved — skipping.\n`);
     return;
   }
-  const ctx = loadContext()!;
-  const sources = loadSources();
+  const ctx = (await storage.loadContext())!;
+  const sources = await storage.loadSources();
   if (sources.length === 0) {
     process.stderr.write(`${tag} No feeds configured — skipping.\n`);
     return;
@@ -1418,10 +1502,11 @@ async function runScheduledHarvest(): Promise<void> {
   try {
     const { articles, seenUrls } = await fetchArticles(
       sources,
+      await storage.getSeenUrls(),
       (msg) => process.stderr.write(`${tag} ${msg}\n`),
       true,
     );
-    saveSeenUrls(seenUrls);
+    await storage.saveSeenUrls(seenUrls);
     if (articles.length === 0) {
       process.stderr.write(`${tag} No new articles.\n`);
       return;
@@ -1436,7 +1521,7 @@ async function runScheduledHarvest(): Promise<void> {
         trendTags: [],
       })
     );
-    const outputDir = saveHarvestOutput(cards, seenUrls);
+    const outputDir = await storage.saveHarvestOutput(cards, seenUrls);
     process.stderr.write(`${tag} Done. ${cards.length} card(s) saved to ${outputDir}.\n`);
   } catch (err) {
     process.stderr.write(`${tag} Error: ${err instanceof Error ? err.message : String(err)}\n`);
@@ -1470,142 +1555,249 @@ function scheduleDaily(timeStr: string, fn: () => Promise<void>): void {
 
 const TRANSPORT_MODE = process.env.Quillby_TRANSPORT ?? "stdio";
 
+// ---------------------------------------------------------------------------
+// Structured logger — used only in HTTP mode so it does not pollute stdio MCP.
+// Emits newline-delimited JSON to stderr.
+// ---------------------------------------------------------------------------
+
+function slog(level: "info" | "warn" | "error", msg: string, extra?: Record<string, unknown>): void {
+  process.stderr.write(JSON.stringify({ ts: new Date().toISOString(), level, msg, ...extra }) + "\n");
+}
+
+const HTTP_BODY_LIMIT = 1 * 1024 * 1024; // 1 MiB
+
 if (TRANSPORT_MODE === "http") {
   // Stateful HTTP mode: each client session gets its own transport instance.
   // A single shared Server handles all sessions via per-request transports.
   const PORT = parseInt(process.env.PORT ?? "3000", 10);
+  const HOST = process.env.QUILLBY_HTTP_HOST ?? "0.0.0.0";
+  const BASE_URL = process.env.QUILLBY_BASE_URL ?? `http://localhost:${PORT}`;
 
   // Map of sessionId → transport, so we can route GET/DELETE back to the right session.
-  const sessions = new Map<string, StreamableHTTPServerTransport>();
+  const sessions = new Map<string, {
+    transport: StreamableHTTPServerTransport;
+    server: McpServer;
+    userId: string;
+  }>();
 
   const httpServer = http.createServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+    const start = Date.now();
+    const url = new URL(req.url ?? "/", BASE_URL);
 
-    // A2A agent card — served unauthenticated so other agents can discover capabilities
-    if (url.pathname === "/.well-known/agent.json") {
-      const baseUrl = process.env.Quillby_BASE_URL ?? `http://localhost:${PORT}`;
-      const agentCard = {
-        name: "Quillby",
-        description: "Guided Research & Insight Synthesis Tool — RSS content intelligence MCP server. Fetches, scores, and structures articles into content cards for social media posts.",
-        url: `${baseUrl}/mcp`,
-        version: "0.4.0",
-        capabilities: {
-          streaming: true,
-          pushNotifications: false,
-          stateTransitionHistory: false,
-        },
-        authentication: {
-          schemes: process.env.Quillby_HTTP_TOKEN ? ["Bearer"] : ["None"],
-        },
-        defaultInputModes: ["application/json"],
-        defaultOutputModes: ["application/json"],
-        skills: [
-          {
-            id: "content_harvest",
-            name: "Content Harvest",
-            description: "Fetch articles from RSS feeds, score for relevance, structure into content cards.",
-            tags: ["rss", "content", "feeds", "articles"],
-            examples: ["Run quillby_daily_brief", "Fetch and analyze articles"],
-          },
-          {
-            id: "post_generation",
-            name: "Post Generation",
-            description: "Generate platform-specific social media posts from content cards using the user voice profile.",
-            tags: ["linkedin", "twitter", "blog", "newsletter"],
-            examples: ["Generate a LinkedIn post from card #3"],
-          },
-          {
-            id: "feed_management",
-            name: "Feed Management",
-            description: "Discover, add, and list RSS feed sources.",
-            tags: ["rss", "feeds", "discovery"],
-            examples: ["Discover feeds for AI topics", "Add a new RSS feed"],
-          },
-        ],
-      };
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }).end(JSON.stringify(agentCard, null, 2));
-      return;
-    }
+    const finish = (status: number) =>
+      slog("info", "request", { method: req.method, path: url.pathname, status, ms: Date.now() - start });
 
-    if (url.pathname !== "/mcp") {
-      res.writeHead(404).end("Not found");
-      return;
-    }
+    try {
+      // ------------------------------------------------------------------
+      // Health check — unauthenticated, fast
+      // ------------------------------------------------------------------
+      if (url.pathname === "/health" && req.method === "GET") {
+        const body = JSON.stringify({ status: "ok", version: "0.8.0", uptime: Math.floor(process.uptime()), sessions: sessions.size });
+        res.writeHead(200, { "Content-Type": "application/json" }).end(body);
+        finish(200);
+        return;
+      }
 
-    // Bearer token auth — enforced when Quillby_HTTP_TOKEN is set
-    const BEARER_TOKEN = process.env.Quillby_HTTP_TOKEN;
-    if (BEARER_TOKEN) {
+      // ------------------------------------------------------------------
+      // A2A agent card — unauthenticated, discovery
+      // ------------------------------------------------------------------
+      if (url.pathname === "/.well-known/agent.json" && req.method === "GET") {
+        const agentCard = {
+          name: "Quillby",
+          description: "Guided Research & Insight Synthesis Tool — RSS content intelligence MCP server. Fetches, scores, and structures articles into content cards for social media posts.",
+          url: `${BASE_URL}/mcp`,
+          version: "0.8.0",
+          capabilities: {
+            streaming: true,
+            pushNotifications: false,
+            stateTransitionHistory: false,
+          },
+          authentication: {
+            schemes: ["Bearer"],
+          },
+          defaultInputModes: ["application/json"],
+          defaultOutputModes: ["application/json"],
+          skills: [
+            {
+              id: "content_harvest",
+              name: "Content Harvest",
+              description: "Open Quillby's daily editorial Briefing from the active workspace and ranked source coverage.",
+              tags: ["rss", "content", "feeds", "articles"],
+              examples: ["Open Quillby", "What's worth writing about today?"],
+            },
+            {
+              id: "post_generation",
+              name: "Post Generation",
+              description: "Generate platform-specific social media posts from content cards using the user voice profile.",
+              tags: ["linkedin", "twitter", "blog", "newsletter"],
+              examples: ["Generate a LinkedIn post from card #3"],
+            },
+            {
+              id: "feed_management",
+              name: "Feed Management",
+              description: "Discover, add, and list RSS feed sources.",
+              tags: ["rss", "feeds", "discovery"],
+              examples: ["Discover feeds for AI topics", "Add a new RSS feed"],
+            },
+          ],
+        };
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }).end(JSON.stringify(agentCard, null, 2));
+        finish(200);
+        return;
+      }
+
+      // ------------------------------------------------------------------
+      // better-auth route handler — sign-up, sign-in, key management
+      // Mounted before /mcp so auth requests never hit the MCP auth gate.
+      // ------------------------------------------------------------------
+      if (url.pathname.startsWith("/api/auth")) {
+        await toNodeHandler(auth)(req, res);
+        finish(res.statusCode ?? 200);
+        return;
+      }
+
+      if (url.pathname !== "/mcp") {
+        res.writeHead(404).end("Not found");
+        finish(404);
+        return;
+      }
+
+      // ------------------------------------------------------------------
+      // API key validation via better-auth
+      // ------------------------------------------------------------------
       const authHeader = req.headers.authorization ?? "";
-      const match = authHeader.match(/^Bearer (.+)$/i);
-      const tokenValid =
-        match != null &&
-        match[1].length === BEARER_TOKEN.length &&
-        timingSafeEqual(Buffer.from(match[1]), Buffer.from(BEARER_TOKEN));
-      if (!tokenValid) {
+      const bearerMatch = authHeader.match(/^Bearer (.+)$/i);
+      if (!bearerMatch) {
         res.writeHead(401, { "WWW-Authenticate": 'Bearer realm="quillby-mcp"' }).end("Unauthorized");
-        return;
-      }
-    }
-
-    // Route GET/DELETE to existing session transport
-    if (req.method === "GET" || req.method === "DELETE") {
-      const sessionId = req.headers["mcp-session-id"] as string | undefined;
-      if (!sessionId || !sessions.has(sessionId)) {
-        res.writeHead(400).end("Missing or unknown mcp-session-id");
-        return;
-      }
-      const existing = sessions.get(sessionId)!;
-      await existing.handleRequest(req, res);
-      return;
-    }
-
-    // POST — new or existing session
-    if (req.method === "POST") {
-      // Read body
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      const body = Buffer.concat(chunks).toString("utf-8");
-      let parsedBody: unknown;
-      try { parsedBody = JSON.parse(body); } catch { parsedBody = undefined; }
-
-      const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-      if (sessionId && sessions.has(sessionId)) {
-        // Existing session
-        await sessions.get(sessionId)!.handleRequest(req, res, parsedBody);
+        finish(401);
         return;
       }
 
-      // New session
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-      });
-      sessions.set(transport.sessionId ?? randomUUID(), transport);
+      const verification = await auth.api.verifyApiKey({ body: { key: bearerMatch[1] } });
+      if (!verification.valid) {
+        res.writeHead(401, { "WWW-Authenticate": 'Bearer realm="quillby-mcp"' }).end("Unauthorized");
+        finish(401);
+        return;
+      }
 
-      transport.onclose = () => {
-        if (transport.sessionId) sessions.delete(transport.sessionId);
-      };
+      const userId: string = verification.key?.referenceId ?? "unknown";
 
-      // Each new session connects a fresh Server clone sharing the same handlers.
-      // Because @modelcontextprotocol/sdk v1.x Server is not multi-transport,
-      // we create a new Server per session but reuse all the registered handlers
-      // by reconnecting the same `server` instance (which is stateless wrt transport).
-      await server.connect(transport);
-      await transport.handleRequest(req, res, parsedBody);
-      return;
+      // ------------------------------------------------------------------
+      // Route GET/DELETE to existing session transport
+      // ------------------------------------------------------------------
+      if (req.method === "GET" || req.method === "DELETE") {
+        const sessionId = req.headers["mcp-session-id"] as string | undefined;
+        if (!sessionId || !sessions.has(sessionId)) {
+          res.writeHead(400).end("Missing or unknown mcp-session-id");
+          finish(400);
+          return;
+        }
+        const session = sessions.get(sessionId)!;
+        if (session.userId !== userId) {
+          res.writeHead(403).end("Forbidden");
+          finish(403);
+          return;
+        }
+        await session.transport.handleRequest(req, res);
+        finish(200);
+        return;
+      }
+
+      // ------------------------------------------------------------------
+      // POST — new or existing session
+      // ------------------------------------------------------------------
+      if (req.method === "POST") {
+        // Read body with size limit
+        const chunks: Buffer[] = [];
+        let totalBytes = 0;
+        for await (const chunk of req) {
+          totalBytes += (chunk as Buffer).length;
+          if (totalBytes > HTTP_BODY_LIMIT) {
+            res.writeHead(413).end("Payload too large");
+            finish(413);
+            return;
+          }
+          chunks.push(chunk as Buffer);
+        }
+        const body = Buffer.concat(chunks).toString("utf-8");
+        let parsedBody: unknown;
+        try { parsedBody = JSON.parse(body); } catch { parsedBody = undefined; }
+
+        const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+        if (sessionId && sessions.has(sessionId)) {
+          const session = sessions.get(sessionId)!;
+          if (session.userId !== userId) {
+            res.writeHead(403).end("Forbidden");
+            finish(403);
+            return;
+          }
+          await session.transport.handleRequest(req, res, parsedBody);
+          finish(200);
+          return;
+        }
+
+        // New session
+        const sessionServer = createMcpServer();
+        const userStorage = getHostedUserStorage(userId);
+        registerMcpHandlers(sessionServer, userStorage);
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+        });
+        const sid = transport.sessionId ?? randomUUID();
+        sessions.set(sid, { transport, server: sessionServer, userId });
+        slog("info", "session_open", { sessionId: sid, userId, sessions: sessions.size });
+
+        transport.onclose = () => {
+          if (transport.sessionId) {
+            const session = sessions.get(transport.sessionId);
+            sessions.delete(transport.sessionId);
+            session?.server.close().catch(() => {});
+            slog("info", "session_close", { sessionId: transport.sessionId, sessions: sessions.size });
+          }
+        };
+
+        await sessionServer.connect(transport);
+        await transport.handleRequest(req, res, parsedBody);
+        finish(200);
+        return;
+      }
+
+      res.writeHead(405).end("Method not allowed");
+      finish(405);
+    } catch (err) {
+      slog("error", "unhandled_error", { error: err instanceof Error ? err.message : String(err) });
+      if (!res.headersSent) res.writeHead(500).end("Internal server error");
+      finish(500);
     }
-
-    res.writeHead(405).end("Method not allowed");
   });
 
-  httpServer.listen(PORT, () => {
-    process.stderr.write(`Quillby MCP server listening on http://localhost:${PORT}/mcp\n`);
-    if (!process.env.Quillby_HTTP_TOKEN) {
-      process.stderr.write("WARNING: Quillby_HTTP_TOKEN is not set — the /mcp endpoint is unprotected.\n");
-    }
+  // ------------------------------------------------------------------
+  // Graceful shutdown
+  // ------------------------------------------------------------------
+  const shutdown = (signal: string) => {
+    slog("info", "shutdown", { signal });
+    httpServer.close(() => {
+      slog("info", "shutdown_complete");
+      process.exit(0);
+    });
+    // Force exit after 10 s if connections are not drained
+    setTimeout(() => {
+      slog("warn", "shutdown_forced");
+      process.exit(1);
+    }, 10_000).unref();
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+
+  httpServer.listen(PORT, HOST, () => {
+    slog("info", "listening", { host: HOST, port: PORT, url: `http://${HOST}:${PORT}/mcp` });
   });
 } else {
   // Default: stdio (local MCP clients — Claude Desktop, VS Code, Cursor)
+  const server = createMcpServer();
+  registerMcpHandlers(server, storage);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

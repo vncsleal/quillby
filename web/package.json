@@ -12,6 +12,9 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/nunito": "^5.2.7",
+    "@fontsource/dm-mono": "^5.2.7",
     "@tailwindcss/vite": "^4.2.1",
     "@vercel/analytics": "^2.0.1",
     "astro": "^6.0.5",

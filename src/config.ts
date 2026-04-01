@@ -9,21 +9,6 @@ export const CONFIG = {
     return process.env.QUILLBY_HOME?.trim() || DEFAULT_DATA_DIR;
   },
   FILES: {
-    get CONTEXT() {
-      return path.join(CONFIG.DATA_DIR, "context.json");
-    },
-    get MEMORY() {
-      return path.join(CONFIG.DATA_DIR, "memory.json");
-    },
-    get SOURCES() {
-      return path.join(CONFIG.DATA_DIR, "rss_sources.txt");
-    },
-    get OUTPUT_DIR() {
-      return path.join(CONFIG.DATA_DIR, "output");
-    },
-    get CACHE() {
-      return path.join(CONFIG.DATA_DIR, ".cache/seen_urls.json");
-    },
     get WORKSPACES_DIR() {
       return path.join(CONFIG.DATA_DIR, "workspaces");
     },
@@ -51,20 +36,4 @@ export function ensureDir(dir: string) {
 export function ensureDataDir() {
   ensureDir(CONFIG.DATA_DIR);
   ensureDir(CONFIG.FILES.WORKSPACES_DIR);
-}
-
-export function readTextFile(filePath: string): string {
-  const ext = path.extname(filePath);
-  const localVariant = ext
-    ? `${filePath.slice(0, -ext.length)}.local${ext}`
-    : `${filePath}.local`;
-
-  for (const candidate of [localVariant, filePath]) {
-    const resolved = path.isAbsolute(candidate)
-      ? candidate
-      : path.join(process.cwd(), candidate);
-    if (fs.existsSync(resolved)) return fs.readFileSync(resolved, "utf-8");
-  }
-
-  throw new Error(`Cannot read config file: ${filePath}`);
 }
