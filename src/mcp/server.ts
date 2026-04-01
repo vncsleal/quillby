@@ -34,7 +34,7 @@ const MEMORY_TYPES = {
 
 type MemoryTypeInput = keyof typeof MEMORY_TYPES;
 
-const SERVER_INFO = { name: "quillby-mcp", version: "1.0.0" } as const;
+const SERVER_INFO = { name: "quillby-mcp", version: "1.1.0" } as const;
 
 function createMcpServer(): McpServer {
   return new McpServer(
@@ -361,6 +361,34 @@ const TOOLS: Tool[] = [
         addToVoiceExamples: { type: "boolean", description: "If true, saves this draft as a voice example in memory." },
       },
       required: ["content", "platform"],
+    },
+  },
+  {
+    name: "quillby_list_drafts",
+    description: "List saved draft posts for the current workspace, most recent first.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    outputSchema: { type: "object" as const },
+    inputSchema: { type: "object", properties: {} },
+  },
+
+  // ── Card curation ─────────────────────────────────────────────────────────
+  {
+    name: "quillby_curate_card",
+    description:
+      "Mark a story card as shortlisted, approved, skipped, or clear its status. Use this to build a ranked drafting queue from the Briefing. Shortlisted = queued for drafting; approved = drafted and approved; skipped = not useful this cycle; clear = remove any status.",
+    annotations: { destructiveHint: false, idempotentHint: true },
+    outputSchema: { type: "object" as const },
+    inputSchema: {
+      type: "object",
+      properties: {
+        cardId: { type: "number", description: "Structure card ID to curate." },
+        action: {
+          type: "string",
+          enum: ["shortlist", "approve", "skip", "clear"],
+          description: "shortlist = queue for drafting; approve = drafted and approved; skip = skip this cycle; clear = remove status.",
+        },
+      },
+      required: ["cardId", "action"],
     },
   },
 
@@ -813,23 +841,42 @@ Return ONLY a JSON array of strings. 10 items max. No explanation.`;
           storage.loadLatestHarvest(),
           storage.loadContext(),
         ]);
+        const curation = bundle.curationState ?? {};
         const sorted = [...bundle.cards].sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0));
+
+        const mapCard = (c: typeof sorted[0]) => ({
+          id: c.id,
+          score: c.relevanceScore,
+          title: c.title,
+          source: c.source,
+          thesis: c.thesis,
+          topAngle: c.angleOptions?.[0] ?? null,
+          topHook: c.hookOptions?.[0] ?? null,
+          trendTags: c.trendTags,
+          curationStatus: curation[String(c.id)] ?? null,
+        });
+
+        const shortlisted = sorted.filter((c) => curation[String(c.id)] === "shortlisted").map(mapCard);
+        const approved = sorted.filter((c) => curation[String(c.id)] === "approved").map(mapCard);
+        const skipped = sorted.filter((c) => curation[String(c.id)] === "skipped").map(mapCard);
+        const uncurated = sorted.filter((c) => !curation[String(c.id)]).map(mapCard);
+
         const briefing = {
           workspace: workspace.name,
           workspaceId: workspace.id,
           generatedAt: bundle.generatedAt,
           totalCards: bundle.cards.length,
           profile: ctx ? { role: ctx.role, industry: ctx.industry, topics: ctx.topics } : null,
-          cards: sorted.map((c) => ({
-            id: c.id,
-            score: c.relevanceScore,
-            title: c.title,
-            source: c.source,
-            thesis: c.thesis,
-            topAngle: c.angleOptions?.[0] ?? null,
-            topHook: c.hookOptions?.[0] ?? null,
-            trendTags: c.trendTags,
-          })),
+          curationSummary: {
+            shortlisted: shortlisted.length,
+            approved: approved.length,
+            skipped: skipped.length,
+            uncurated: uncurated.length,
+          },
+          shortlisted,
+          approved,
+          skipped,
+          uncurated,
         };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(briefing, null, 2) }],
@@ -1144,6 +1191,45 @@ Return ONLY a valid JSON array of these objects, no prose.`;
           ? `Draft saved to ${filePath}. Added to voice memory.`
           : `Draft saved to ${filePath}.`;
         return { content: [{ type: "text" as const, text: savedMsg }], structuredContent: { saved: true, platform, filePath, voiceExampleAdded: addToVoiceExamples ?? false } };
+      }
+
+      case "quillby_list_drafts": {
+        const drafts = await storage.listDrafts();
+        const listDraftsResult = { count: drafts.length, drafts };
+        return {
+          content: [{ type: "text" as const, text: drafts.length ? JSON.stringify(listDraftsResult, null, 2) : "No saved drafts for this workspace yet." }],
+          structuredContent: listDraftsResult as unknown as Record<string, unknown>,
+        };
+      }
+
+      case "quillby_curate_card": {
+        const { cardId: curateId, action } = args as { cardId: number; action: "shortlist" | "approve" | "skip" | "clear" };
+        if (!await storage.latestHarvestExists()) {
+          return { content: [{ type: "text" as const, text: "No harvest found. Save cards first." }], structuredContent: { error: "no_harvest" } };
+        }
+        const curateBundle = await storage.loadLatestHarvest();
+        const curateCard = curateBundle.cards.find((c) => c.id === curateId);
+        if (!curateCard) {
+          return { content: [{ type: "text" as const, text: `Card #${curateId} not found. Available: ${curateBundle.cards.map((c) => c.id).join(", ")}.` }], structuredContent: { error: "not_found", cardId: curateId } };
+        }
+        const statusMap: Record<"shortlist" | "approve" | "skip", "shortlisted" | "approved" | "skipped"> = {
+          shortlist: "shortlisted",
+          approve: "approved",
+          skip: "skipped",
+        };
+        const key = String(curateId);
+        if (action === "clear") {
+          const cleared = { ...(curateBundle.curationState ?? {}) };
+          delete cleared[key];
+          await storage.saveCurationState(cleared as Record<string, "shortlisted" | "approved" | "skipped">);
+        } else {
+          await storage.saveCurationState({ [key]: statusMap[action] });
+        }
+        const newStatus = action === "clear" ? "cleared" : statusMap[action];
+        return {
+          content: [{ type: "text" as const, text: `Card #${curateId} "${curateCard.title}" — status set to ${newStatus}.` }],
+          structuredContent: { cardId: curateId, title: curateCard.title, status: newStatus },
+        };
       }
 
       case "quillby_generate_post": {

@@ -99,10 +99,15 @@ export type StructureCard = z.infer<typeof StructureCardSchema>;
 
 // ─── Harvest bundle ───────────────────────────────────────────────────────────
 
+export const CurationStatusSchema = z.enum(["shortlisted", "approved", "skipped"]);
+export type CurationStatus = z.infer<typeof CurationStatusSchema>;
+
 export const HarvestBundleSchema = z.object({
   generatedAt: z.string(),
   dateLabel: z.string(),
   cards: z.array(StructureCardSchema),
+  /** Map of cardId (as string) → curation status. Set by quillby_curate_card. */
+  curationState: z.record(z.string(), CurationStatusSchema).optional().default({}),
 });
 
 export type HarvestBundle = z.infer<typeof HarvestBundleSchema>;

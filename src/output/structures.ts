@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { ensureDir } from "../config.js";
-import { HarvestBundleSchema, CardInputSchema, type HarvestBundle, type StructureCard, type CardInput } from "../types.js";
+import { HarvestBundleSchema, CardInputSchema, type HarvestBundle, type StructureCard, type CardInput, type CurationStatus } from "../types.js";
 import { getCurrentWorkspaceId, getWorkspacePaths } from "../workspaces.js";
 
 function createTimestampedOutputDir(): string {
@@ -41,6 +41,7 @@ export function saveHarvestOutput(rawCards: CardInput[], _seenUrls?: Set<string>
     generatedAt: new Date().toISOString(),
     dateLabel,
     cards,
+    curationState: {},
   };
 
   fs.writeFileSync(path.join(outputDir, "structures.json"), JSON.stringify(bundle, null, 2));
@@ -136,4 +137,68 @@ export function saveDraft(
   const filePath = path.join(outputDir, `${platform.toLowerCase()}${suffix}.md`);
   fs.writeFileSync(filePath, content + "\n");
   return filePath;
+}
+
+export function saveCurationState(
+  state: Record<string, CurationStatus>
+): void {
+  const paths = getWorkspacePaths(getCurrentWorkspaceId());
+  if (!fs.existsSync(paths.latestHarvestPointer)) {
+    throw new Error("No harvest found. Save cards first before curating.");
+  }
+  const bundlePath = fs.readFileSync(paths.latestHarvestPointer, "utf-8").trim();
+  if (!bundlePath || !fs.existsSync(bundlePath)) {
+    throw new Error("Latest harvest pointer is invalid.");
+  }
+  const raw = JSON.parse(fs.readFileSync(bundlePath, "utf-8"));
+  const bundle: HarvestBundle = HarvestBundleSchema.parse(raw);
+  const merged = { ...bundle.curationState, ...state };
+  const updated = { ...bundle, curationState: merged };
+  fs.writeFileSync(bundlePath, JSON.stringify(updated, null, 2));
+}
+
+export type DraftSummary = {
+  id: string;
+  platform: string;
+  cardId?: number;
+  createdAt: string;
+  preview: string;
+};
+
+export function listLocalDrafts(): DraftSummary[] {
+  const paths = getWorkspacePaths(getCurrentWorkspaceId());
+  const bundlePath = fs.existsSync(paths.latestHarvestPointer)
+    ? fs.readFileSync(paths.latestHarvestPointer, "utf-8").trim()
+    : null;
+  const searchDirs: string[] = [];
+  if (bundlePath && fs.existsSync(bundlePath)) searchDirs.push(path.dirname(bundlePath));
+  if (fs.existsSync(paths.outputDir)) searchDirs.push(paths.outputDir);
+
+  const seen = new Set<string>();
+  const drafts: DraftSummary[] = [];
+
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of fs.readdirSync(dir)) {
+      if (!file.endsWith(".md") || file === "structures.md") continue;
+      const filePath = path.join(dir, file);
+      if (seen.has(filePath)) continue;
+      seen.add(filePath);
+      const stat = fs.statSync(filePath);
+      const cardMatch = file.match(/_card(\d+)\.md$/);
+      const cardId = cardMatch ? parseInt(cardMatch[1], 10) : undefined;
+      const platform = file.replace(/_card\d+\.md$/, "").replace(/\.md$/, "");
+      const content = fs.readFileSync(filePath, "utf-8");
+      drafts.push({
+        id: filePath,
+        platform,
+        cardId,
+        createdAt: stat.mtime.toISOString(),
+        preview: content.slice(0, 200).replace(/\n+/g, " ").trim(),
+      });
+    }
+  }
+
+  drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return drafts;
 }

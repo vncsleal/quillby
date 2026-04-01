@@ -22,6 +22,9 @@ import {
   latestHarvestExists as structsLatestExists,
   saveHarvestOutput as structsSaveHarvest,
   saveDraft as structsSaveDraft,
+  saveCurationState as structsSaveCurationState,
+  listLocalDrafts as structsListLocalDrafts,
+  type DraftSummary,
 } from "./output/structures.js";
 import {
   TypedMemorySchema,
@@ -35,6 +38,7 @@ import {
   type CardInput,
   type WorkspaceMetadata,
   type StructureCard,
+  type CurationStatus,
 } from "./types.js";
 import { db as defaultDb, createDb, type QuillbyDb } from "./db.js";
 import {
@@ -115,7 +119,11 @@ export interface WorkspaceStorage {
   latestHarvestExists(): Promise<boolean>;
   saveHarvestOutput(cards: CardInput[], seenUrls: Set<string>): Promise<string>;
   saveDraft(content: string, platform: string, cardId?: number): Promise<string>;
+  saveCurationState(state: Record<string, CurationStatus>): Promise<void>;
+  listDrafts(): Promise<DraftSummary[]>;
 }
+
+export type { DraftSummary };
 
 // ── Local filesystem storage (stdio mode and local CLI) ──────────────────────
 
@@ -143,6 +151,8 @@ export class LocalWorkspaceStorage implements WorkspaceStorage {
   async latestHarvestExists() { return structsLatestExists(); }
   async saveHarvestOutput(cards: CardInput[], seenUrls: Set<string>) { return structsSaveHarvest(cards, seenUrls); }
   async saveDraft(content: string, platform: string, cardId?: number) { return structsSaveDraft(content, platform, cardId); }
+  async saveCurationState(state: Record<string, CurationStatus>) { structsSaveCurationState(state); }
+  async listDrafts() { return structsListLocalDrafts(); }
 }
 
 export const storage = new LocalWorkspaceStorage();
@@ -179,6 +189,12 @@ class ScopedWorkspaceStorage implements WorkspaceStorage {
   }
   async saveDraft(content: string, platform: string, cardId?: number) {
     return withScopedHome(this.homeDir, () => structsSaveDraft(content, platform, cardId));
+  }
+  async saveCurationState(state: Record<string, CurationStatus>) {
+    withScopedHome(this.homeDir, () => structsSaveCurationState(state));
+  }
+  async listDrafts() {
+    return withScopedHome(this.homeDir, () => structsListLocalDrafts());
   }
 }
 
@@ -505,6 +521,7 @@ export class HostedDbWorkspaceStorage implements WorkspaceStorage {
       generatedAt: new Date().toISOString(),
       dateLabel,
       cards: structCards,
+      curationState: {},
     };
     const data = JSON.stringify(bundle);
     const now = new Date();
@@ -533,6 +550,42 @@ export class HostedDbWorkspaceStorage implements WorkspaceStorage {
       createdAt: new Date(),
     });
     return `draft:${id}`;
+  }
+
+  async saveCurationState(state: Record<string, CurationStatus>): Promise<void> {
+    await this.ensureInit();
+    const currentId = await this.getCurrentWorkspaceId();
+    const rows = await this.db
+      .select({ data: hostedWorkspaceHarvest.data })
+      .from(hostedWorkspaceHarvest)
+      .where(and(eq(hostedWorkspaceHarvest.userId, this.userId), eq(hostedWorkspaceHarvest.workspaceId, currentId)))
+      .limit(1);
+    if (rows.length === 0) throw new Error("No harvest found. Save cards first before curating.");
+    const bundle = HarvestBundleSchema.parse(JSON.parse(rows[0].data));
+    const merged = { ...bundle.curationState, ...state };
+    const updated = JSON.stringify({ ...bundle, curationState: merged });
+    const now = new Date();
+    await this.db
+      .update(hostedWorkspaceHarvest)
+      .set({ data: updated, generatedAt: now })
+      .where(and(eq(hostedWorkspaceHarvest.userId, this.userId), eq(hostedWorkspaceHarvest.workspaceId, currentId)));
+  }
+
+  async listDrafts(): Promise<DraftSummary[]> {
+    await this.ensureInit();
+    const currentId = await this.getCurrentWorkspaceId();
+    const rows = await this.db
+      .select()
+      .from(hostedWorkspaceDraft)
+      .where(and(eq(hostedWorkspaceDraft.userId, this.userId), eq(hostedWorkspaceDraft.workspaceId, currentId)))
+      .orderBy(hostedWorkspaceDraft.createdAt);
+    return rows.map((r) => ({
+      id: r.id,
+      platform: r.platform,
+      cardId: r.cardId ?? undefined,
+      createdAt: (r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt)).toISOString(),
+      preview: r.content.slice(0, 200).replace(/\n+/g, " ").trim(),
+    })).reverse();
   }
 }
 
