@@ -11,6 +11,7 @@ import {
   type Resource,
   type Prompt,
 } from "@modelcontextprotocol/sdk/types.js";
+import { sql } from "drizzle-orm";
 import { UserContextSchema, CardInputSchema } from "../types.js";
 import {
   contextToPromptText,
@@ -44,7 +45,7 @@ const MEMORY_TYPES = {
 
 type MemoryTypeInput = keyof typeof MEMORY_TYPES;
 
-const SERVER_INFO = { name: "quillby-mcp", version: "1.2.0" } as const;
+const SERVER_INFO = { name: "quillby-mcp", version: "1.4.0" } as const;
 
 function createMcpServer(): McpServer {
   return new McpServer(
@@ -180,6 +181,13 @@ const TOOLS: Tool[] = [
       },
       required: ["workspaceId"],
     },
+  },
+  {
+    name: "quillby_server_info",
+    description: "Get server runtime info: version, deployment mode, transport, and DB status. Useful for self-hosted operations.",
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    outputSchema: { type: "object" as const },
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "quillby_set_context",
@@ -737,6 +745,51 @@ async function handleToolCall(
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ workspaceId, count: access.length, access }, null, 2) }],
           structuredContent: { workspaceId, count: access.length, access },
+        };
+      }
+
+      case "quillby_server_info": {
+        const mode = getDeploymentMode();
+        const transport = process.env.Quillby_TRANSPORT ?? process.env.QUILLBY_TRANSPORT ?? "stdio";
+        const dbUrl = process.env.QUILLBY_AUTH_DB_URL ?? "file:./quillby-auth.db";
+        let dbStatus: "ok" | "error" = "ok";
+        let dbError: string | null = null;
+        try {
+          await db.run(sql.raw("SELECT 1"));
+        } catch (err) {
+          dbStatus = "error";
+          dbError = err instanceof Error ? err.message : String(err);
+        }
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              name: SERVER_INFO.name,
+              version: SERVER_INFO.version,
+              mode,
+              transport,
+              cloudMode: isCloudMode(),
+              planEnforcementEnabled: isPlanEnforcementEnabled(),
+              db: {
+                status: dbStatus,
+                url: dbUrl,
+                error: dbError,
+              },
+            }, null, 2),
+          }],
+          structuredContent: {
+            name: SERVER_INFO.name,
+            version: SERVER_INFO.version,
+            mode,
+            transport,
+            cloudMode: isCloudMode(),
+            planEnforcementEnabled: isPlanEnforcementEnabled(),
+            db: {
+              status: dbStatus,
+              url: dbUrl,
+              error: dbError,
+            },
+          },
         };
       }
 

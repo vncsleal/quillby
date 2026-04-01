@@ -157,6 +157,22 @@ You can also save typed editorial memory:
 
 HTTP transport, environment variables, scheduled harvest, the full tool reference, and integration configs for VS Code and Cursor: see [docs/MCP.md](docs/MCP.md). The implementation roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Self-hosted quick start
+
+If you want cross-device/team access on your own infrastructure:
+
+```bash
+docker compose up -d --build
+```
+
+Then point your MCP client to:
+
+- `http://localhost:3000/mcp` (local testing)
+- or your reverse-proxied HTTPS URL in production
+
+Set `QUILLBY_DEPLOYMENT_MODE=self-hosted` for user-operated deployments. This keeps
+SaaS billing/subscription logic disabled while preserving hosted features like API-key auth and shared workspaces.
+
 ---
 
 ## License

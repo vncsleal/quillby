@@ -173,9 +173,9 @@ Goal: let Claude help the user curate harvested cards before drafting.
 
 Mode: **All three**
 
-### v1.2: Per-Workspace Override + Plans + Team Access
+### v1.2: Per-Workspace Override + Plans + Team Access ✓
 
-Goal: remove the last friction points for managed hosted and self-hosted use.
+Goal: remove the last friction points for cloud and self-hosted use.
 
 **Per-tool workspace override** (all modes)
 
@@ -197,18 +197,19 @@ Goal: remove the last friction points for managed hosted and self-hosted use.
 - shared workspace content is read/written as the owner's data (grantee sees
   the same cards, drafts, and memory as the owner for that workspace)
 
-### v1.3: Quillby Cloud Billing
+### v1.3: Quillby Cloud Billing (in progress)
 
 Goal: productize Quillby Cloud.
 
-- Stripe integration for plan subscription (free → pro upgrade)
-- usage limits enforced per plan (harvest frequency, workspace count, draft storage)
-- billing portal link exposed via `quillby_get_plan`
-- self-hosted users are unaffected — plan enforcement is behind an env flag
+- Stripe webhook integration for plan sync (free/pro) ✓
+- usage limits enforced per plan (harvest frequency, workspace count, draft storage) ✓
+- billing portal link exposed via `quillby_get_plan` ✓
+- self-hosted users are unaffected — plan enforcement is behind deployment mode gating ✓
+- remaining: checkout + subscription lifecycle UX (upgrade/downgrade flows)
 
 Mode: **Cloud** only
 
-### v1.4: Self-Hosted Operations Kit
+### v1.4: Self-Hosted Operations Kit ✓
 
 Goal: make self-hosting genuinely easy.
 

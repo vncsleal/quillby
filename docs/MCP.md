@@ -30,9 +30,19 @@ npm run build
 | `quillby_create_workspace` | `name`, `workspaceId?`, `description?`, `makeCurrent?` | Created workspace |
 | `quillby_select_workspace` | `workspaceId` | Active workspace |
 | `quillby_get_workspace` | `workspaceId?` | Workspace metadata + active state |
+| `quillby_get_plan` | — | Current plan + mode + limits metadata |
+| `quillby_server_info` | — | Runtime mode, version, transport, DB status |
 | `quillby_open_briefing` | — | Opens the cached Briefing MCP App instantly from saved local state |
 | `quillby_set_context` | `context` object (required) | Confirmation |
 | `quillby_get_context` | — | Profile JSON |
+
+### Team Access (Hosted)
+
+| Tool | Parameters | Returns |
+|---|---|---|
+| `quillby_share_workspace` | `workspaceId`, `granteeUserId`, `role` | Access granted confirmation |
+| `quillby_revoke_access` | `workspaceId`, `granteeUserId` | Access revoked confirmation |
+| `quillby_list_workspace_access` | `workspaceId` | Current access list |
 
 ### Briefing
 
@@ -171,6 +181,36 @@ Run as a remote HTTP server when you need:
 - team/shared hosted access
 - OpenAI ChatGPT app/deep research remote integration
 - centralized auth and policy enforcement
+
+## Self-Hosted Quick Start (v1.4)
+
+From repo root, run:
+
+```bash
+docker compose up -d --build
+```
+
+That gives a working endpoint at `http://localhost:3000/mcp`.
+
+### Deployment checklist
+
+1. Set `QUILLBY_DEPLOYMENT_MODE=self-hosted`.
+2. Keep `Quillby_TRANSPORT=http`.
+3. Persist `/data` as a Docker volume.
+4. Set `QUILLBY_BASE_URL` to your public URL behind reverse proxy.
+5. Configure TLS at the proxy layer (Nginx/Caddy/Traefik).
+6. Create user and API keys via `/api/auth/*` or `npm run keys` utilities.
+7. Verify with `quillby_server_info`.
+
+### Upgrade path
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Quillby runs hosted DDL checks on startup/first access (`ensureHostedTables`),
+so schema upgrades are applied automatically for supported migrations.
 
 ```bash
 # 1. Push schema to the auth DB (first-time setup)
