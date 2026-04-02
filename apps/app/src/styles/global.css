@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "@fontsource-variable/nunito/wght.css";
+@import "@fontsource-variable/fraunces/wght.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
+
+@theme {
+  --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
+}

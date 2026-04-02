@@ -1,0 +1,26 @@
+{
+  "name": "@quillby/storage-db",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@quillby/billing": "workspace:*",
+    "@quillby/core": "workspace:*",
+    "@quillby/database": "workspace:*",
+    "@quillby/workspace": "workspace:*",
+    "drizzle-orm": "^0.45.2"
+  }
+}

@@ -14,13 +14,20 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Build arch binaries
         run: |
-          bun build --compile --target=bun-darwin-arm64 ./src/mcp/server.ts --outfile quillby-mcp-macos-arm64
-          bun build --compile --target=bun-darwin-x64  ./src/mcp/server.ts --outfile quillby-mcp-macos-x64
+          bun build --compile --target=bun-darwin-arm64 ./apps/mcp-server/src/mcp/server.ts --outfile quillby-mcp-macos-arm64
+          bun build --compile --target=bun-darwin-x64  ./apps/mcp-server/src/mcp/server.ts --outfile quillby-mcp-macos-x64
 
       - name: Create universal binary via lipo
         run: lipo -create -output quillby-mcp quillby-mcp-macos-arm64 quillby-mcp-macos-x64
@@ -32,7 +39,7 @@ jobs:
           chmod +x pkg-root/usr/local/bin/quillby-mcp
 
           mkdir -p pkg-scripts
-          cp installer/macos/postinstall pkg-scripts/postinstall
+          cp infra/installers/macos/postinstall pkg-scripts/postinstall
           chmod +x pkg-scripts/postinstall
 
           pkgbuild \
@@ -55,24 +62,31 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Build binary
-        run: bun build --compile --target=bun-windows-x64 ./src/mcp/server.ts --outfile quillby-mcp-windows-x64.exe
+        run: bun build --compile --target=bun-windows-x64 ./apps/mcp-server/src/mcp/server.ts --outfile quillby-mcp-windows-x64.exe
 
       - name: Install NSIS and build installer
         run: |
           choco install nsis --no-progress -y
           $env:PATH = "C:\Program Files (x86)\NSIS;" + $env:PATH
-          copy quillby-mcp-windows-x64.exe installer\windows\quillby-mcp-windows-x64.exe
-          makensis installer\windows\installer.nsi
+          copy quillby-mcp-windows-x64.exe infra\installers\windows\quillby-mcp-windows-x64.exe
+          makensis infra\installers\windows\installer.nsi
         shell: pwsh
 
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            installer\windows\quillby-windows.exe
+            infra\installers\windows\quillby-windows.exe
             quillby-mcp-windows-x64.exe
 
   # Linux: raw binary (install.sh handles config)
@@ -80,11 +94,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Build binary
-        run: bun build --compile --target=bun-linux-x64 ./src/mcp/server.ts --outfile quillby-mcp-linux-x64
+        run: bun build --compile --target=bun-linux-x64 ./apps/mcp-server/src/mcp/server.ts --outfile quillby-mcp-linux-x64
 
       - uses: softprops/action-gh-release@v2
         with:

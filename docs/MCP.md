@@ -11,11 +11,11 @@ How to connect Quillby to your AI client. Quillby supports two transports:
 
 ```bash
 cd /path/to/quillby
-npm install
-npm run build
+pnpm install
+pnpm build
 ```
 
-`./bin/quillby-mcp` is the canonical entrypoint after building.
+`./apps/mcp-server/bin/quillby-mcp` is the canonical entrypoint after building.
 
 ## Tools
 
@@ -181,7 +181,7 @@ HTTP logs are newline-delimited JSON emitted to stderr:
 No, for personal/local use you do not deploy anything.
 
 Use local stdio MCP:
-- your client starts `node dist/mcp/server.js`
+- your client starts `node apps/mcp-server/dist/mcp/server.js`
 - tools are available locally in your client
 
 Run as a remote HTTP server when you need:
@@ -194,7 +194,7 @@ Run as a remote HTTP server when you need:
 From repo root, run:
 
 ```bash
-docker compose up -d --build
+docker compose -f infra/docker/docker-compose.yml up -d --build
 ```
 
 That gives a working endpoint at `http://localhost:3000/mcp`.
@@ -206,14 +206,14 @@ That gives a working endpoint at `http://localhost:3000/mcp`.
 3. Persist `/data` as a Docker volume.
 4. Set `QUILLBY_BASE_URL` to your public URL behind reverse proxy.
 5. Configure TLS at the proxy layer (Nginx/Caddy/Traefik).
-6. Create user and API keys via `/api/auth/*` or `npm run keys` utilities.
+6. Create user and API keys via `/api/auth/*` or `pnpm --filter @vncsleal/quillby keys` utilities.
 7. Verify with `quillby_server_info`.
 
 ### Upgrade path
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose -f infra/docker/docker-compose.yml pull
+docker compose -f infra/docker/docker-compose.yml up -d
 ```
 
 Quillby runs hosted DDL checks on startup/first access (`ensureHostedTables`),
@@ -221,14 +221,14 @@ so schema upgrades are applied automatically for supported migrations.
 
 ```bash
 # 1. Push schema to the auth DB (first-time setup)
-npm run db:push
+pnpm --filter @vncsleal/quillby db:push
 
 # 2. Create a user and generate an API key
-npm run keys create-user user@example.com mypassword "Alice"
-npm run keys create <userId> my-key
+pnpm --filter @vncsleal/quillby keys create-user user@example.com mypassword "Alice"
+pnpm --filter @vncsleal/quillby keys create <userId> my-key
 
 # 3. Start the server
-Quillby_TRANSPORT=http PORT=3000 node dist/mcp/server.js
+Quillby_TRANSPORT=http PORT=3000 node apps/mcp-server/dist/mcp/server.js
 ```
 
 Clients authenticate by passing the API key as a Bearer token:
@@ -244,12 +244,12 @@ Add Quillby with explicit stdio command:
 
 ```bash
 claude mcp add --transport stdio --scope project grist -- \
-  /path/to/quillby/bin/quillby-mcp
+  /path/to/quillby/apps/mcp-server/bin/quillby-mcp
 ```
 
 Notes:
 - `--scope project` writes a team-shareable `.mcp.json` in project root.
-- Rebuild with `tsc` after code changes so `dist/mcp/server.js` stays current.
+- Rebuild with `pnpm --filter @vncsleal/quillby build` after code changes so `apps/mcp-server/dist/mcp/server.js` stays current.
 
 ### Claude Desktop
 
@@ -260,7 +260,7 @@ Add to Claude Desktop MCP config:
   "mcpServers": {
     "quillby": {
       "type": "stdio",
-      "command": "/path/to/quillby/bin/quillby-mcp",
+      "command": "/path/to/quillby/apps/mcp-server/bin/quillby-mcp",
       "args": []
     }
   }
@@ -274,7 +274,7 @@ Add to Claude Desktop MCP config:
   "servers": {
     "quillby": {
       "type": "stdio",
-      "command": "${workspaceFolder}/bin/quillby-mcp",
+      "command": "${workspaceFolder}/apps/mcp-server/bin/quillby-mcp",
       "args": []
     }
   }
@@ -288,7 +288,7 @@ Add to Claude Desktop MCP config:
   "mcpServers": {
     "quillby": {
       "type": "stdio",
-      "command": "${workspaceFolder}/bin/quillby-mcp",
+      "command": "${workspaceFolder}/apps/mcp-server/bin/quillby-mcp",
       "args": []
     }
   }
@@ -316,7 +316,7 @@ Gemini tooling emphasizes function/tool use. For MCP-capable clients, use the sa
   "mcpServers": {
     "quillby": {
       "type": "stdio",
-      "command": "/absolute/path/to/quillby/bin/quillby-mcp",
+      "command": "/absolute/path/to/quillby/apps/mcp-server/bin/quillby-mcp",
       "args": []
     }
   }
@@ -336,5 +336,5 @@ For acceptance and familiarity:
 
 1. Keep local stdio support (already implemented).
 2. Use config-file-driven setup (`.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`) with explicit `command`/`args`.
-3. Use repo-local executable wrapper `./bin/quillby-mcp` for consistent client wiring.
+3. Use repo-local executable wrapper `./apps/mcp-server/bin/quillby-mcp` for consistent client wiring.
 4. Use `Quillby_TRANSPORT=http` for hosted deployments and require Bearer API keys issued by Better Auth.

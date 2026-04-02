@@ -1,0 +1,23 @@
+services:
+  quillby:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    image: vncsleal/quillby:latest
+    container_name: quillby
+    restart: unless-stopped
+    environment:
+      Quillby_TRANSPORT: http
+      QUILLBY_HTTP_HOST: 0.0.0.0
+      PORT: 3000
+      QUILLBY_BASE_URL: http://localhost:3000
+      QUILLBY_DEPLOYMENT_MODE: self-hosted
+      QUILLBY_AUTH_DB_URL: file:/data/quillby-auth.db
+      QUILLBY_RATE_LIMIT: 60
+    ports:
+      - "3000:3000"
+    volumes:
+      - quillby_data:/data
+
+volumes:
+  quillby_data:

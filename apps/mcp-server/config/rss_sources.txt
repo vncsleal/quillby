@@ -1,0 +1,2 @@
+# Quillby RSS Sources
+# Add your RSS/Atom feed URLs below, one per line.

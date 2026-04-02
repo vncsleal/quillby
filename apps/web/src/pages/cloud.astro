@@ -1,0 +1,55 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quillby Cloud</title>
+    <meta name="description" content="Quillby Cloud is the managed hosted deployment profile with dashboard, billing, and connector onboarding." />
+    <style>
+      :root { --bg:#0c0915; --surface:rgba(255,255,255,0.04); --border:rgba(167,139,250,0.14); --violet:#c4b5fd; --text:#f0eafa; --muted:rgba(240,234,250,0.7); --serif:"Fraunces Variable", Georgia, serif; --sans:"Nunito Variable", system-ui, sans-serif; --mono:"DM Mono", monospace; }
+      * { box-sizing:border-box; } body { margin:0; min-height:100vh; background:radial-gradient(circle at top, rgba(124,58,237,0.18), transparent 35%), var(--bg); color:var(--text); font-family:var(--sans); }
+      main { max-width:1120px; margin:0 auto; padding:3rem 1.5rem 5rem; } a { color:inherit; } .back { color:var(--violet); text-decoration:none; font-size:0.9rem; }
+      .hero { display:grid; gap:2rem; padding:2rem 0 3rem; } h1 { font-family:var(--serif); font-size:clamp(3rem, 7vw, 5rem); line-height:0.98; letter-spacing:-0.03em; margin:0; }
+      p.lead { max-width:48rem; font-size:1.05rem; line-height:1.8; color:var(--muted); margin:0; }
+      .grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; } .card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:1.75rem; }
+      .card h2 { margin:0 0 0.75rem; font-family:var(--serif); font-size:1.4rem; } .card p, .card li { color:var(--muted); line-height:1.7; }
+      ul { padding-left:1.2rem; } .pill { display:inline-block; margin-bottom:0.85rem; color:var(--violet); font-family:var(--mono); font-size:0.72rem; letter-spacing:0.14em; text-transform:uppercase; }
+      .cta { display:inline-flex; align-items:center; justify-content:center; margin-top:1rem; padding:0.9rem 1.25rem; border-radius:999px; text-decoration:none; background:linear-gradient(135deg, #6d28d9, #7c3aed); color:#fff; font-weight:700; }
+      @media (max-width:860px) { .grid { grid-template-columns:1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="/">← Back to Quillby</a>
+      <section class="hero">
+        <div class="pill">Cloud mode</div>
+        <h1>Managed Quillby for hosted workspaces and connector onboarding.</h1>
+        <p class="lead">Cloud is the managed hosted deployment profile. Users should sign in with a Quillby account, open the browser dashboard without entering a server URL, and then connect Claude Connectors or other hosted MCP clients from a guided onboarding flow.</p>
+        <a class="cta" href="http://localhost:5173/#/">Open the hosted app →</a>
+      </section>
+      <section class="grid">
+        <article class="card">
+          <h2>What cloud should do</h2>
+          <ul>
+            <li>Account and session-based browser auth</li>
+            <li>Managed DB, billing, and plan enforcement</li>
+            <li>Connector setup flows for Claude.ai and other remote MCP clients</li>
+            <li>No manual server URL in the primary dashboard entry flow</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>What still needs productization</h2>
+          <ul>
+            <li>Real sign-in and account creation</li>
+            <li>Cloud onboarding inside the app</li>
+            <li>Per-client connector setup guides linked from the dashboard</li>
+            <li>Managed-host production stack and deployment ops</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

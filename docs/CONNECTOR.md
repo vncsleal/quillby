@@ -21,8 +21,8 @@ Clone and build:
 ```bash
 git clone https://github.com/vncsleal/quillby.git
 cd quillby
-npm install
-npm run build
+pnpm install
+pnpm build
 ```
 
 Create a `.env` file with at minimum:
@@ -44,7 +44,7 @@ QUILLBY_AUTH_DB_URL=file:./quillby-auth.db
 Start the server:
 
 ```bash
-node dist/mcp/server.js
+node apps/mcp-server/dist/mcp/server.js
 ```
 
 Verify it is running:
@@ -63,22 +63,22 @@ Quillby's HTTP mode uses API keys for connector authentication.
 Create a user account first:
 
 ```bash
-npm run keys create-user you@example.com yourpassword "Your Name"
+pnpm --filter @vncsleal/quillby keys create-user you@example.com yourpassword "Your Name"
 # Prints: { "id": "user_...", "email": "...", "name": "..." }
 ```
 
 Then create an API key for that user (copy the printed `userId`):
 
 ```bash
-npm run keys create <userId> quillby-connector
+pnpm --filter @vncsleal/quillby keys create <userId> quillby-connector
 # Prints the full API key — copy it now, it is only shown once.
 ```
 
 To list existing keys or revoke one:
 
 ```bash
-npm run keys list <userId>
-npm run keys revoke <keyId>
+pnpm --filter @vncsleal/quillby keys list <userId>
+pnpm --filter @vncsleal/quillby keys revoke <keyId>
 ```
 
 ---
@@ -97,15 +97,15 @@ LIBSQL_AUTH_TOKEN=<token>
 **Step 2 — dry-run first to preview what will be migrated:**
 
 ```bash
-npm run migrate -- <userId> --dry-run
+pnpm --filter @vncsleal/quillby migrate -- <userId> --dry-run
 # Uses ~/.quillby by default; pass a path as second arg to use a different directory:
-npm run migrate -- <userId> /custom/path/.quillby --dry-run
+pnpm --filter @vncsleal/quillby migrate -- <userId> /custom/path/.quillby --dry-run
 ```
 
 **Step 3 — run live:**
 
 ```bash
-npm run migrate -- <userId>
+pnpm --filter @vncsleal/quillby migrate -- <userId>
 ```
 
 The script is **idempotent**: workspaces already in the hosted DB are silently skipped, so it is safe to re-run. Each migrated workspace preserves its original creation timestamp, context, memory, sources, seen-URL cache, and latest harvest bundle.
@@ -179,13 +179,13 @@ fly deploy
 Then create your user and API key:
 
 ```bash
-fly ssh console -C "node dist/mcp/server.js" &   # not needed — just run the script
+fly ssh console -C "node apps/mcp-server/dist/mcp/server.js" &   # not needed — just run the script
 # Run keys commands locally against the remote DB:
 QUILLBY_AUTH_DB_URL=libsql://quillby-<org>.turso.io \
 LIBSQL_AUTH_TOKEN=<token> \
-npm run keys create-user you@example.com yourpassword "Your Name"
+pnpm --filter @vncsleal/quillby keys create-user you@example.com yourpassword "Your Name"
 
 QUILLBY_AUTH_DB_URL=libsql://quillby-<org>.turso.io \
 LIBSQL_AUTH_TOKEN=<token> \
-npm run keys create <userId> quillby-connector
+pnpm --filter @vncsleal/quillby keys create <userId> quillby-connector
 ```

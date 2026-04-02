@@ -4,14 +4,14 @@ If you just cloned this repository, run:
 
 ```bash
 <install dependencies with your package manager>
-tsc
-./bin/quillby-mcp
+pnpm --filter @vncsleal/quillby build
+./apps/mcp-server/bin/quillby-mcp
 ```
 
 Create local config files if they do not exist:
 
-- `config/context.md`
-- `config/rss_sources.txt`
+- `apps/mcp-server/config/context.md`
+- `apps/mcp-server/config/rss_sources.txt`
 
 Then call Quillby from your MCP host client via `quillby_harvest`, `quillby_list_cards`, and `quillby_compose`.
 

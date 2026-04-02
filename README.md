@@ -162,7 +162,7 @@ HTTP transport, environment variables, scheduled harvest, the full tool referenc
 If you want cross-device/team access on your own infrastructure:
 
 ```bash
-docker compose up -d --build
+docker compose -f infra/docker/docker-compose.yml up -d --build
 ```
 
 Then point your MCP client to:

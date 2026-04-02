@@ -1,0 +1,88 @@
+{
+  "name": "@vncsleal/quillby",
+  "version": "1.5.0",
+  "description": "Quillby — AI copywriting assistant. Reads the internet and writes content in your voice.",
+  "license": "MIT",
+  "author": "Vinicius Leal",
+  "keywords": [
+    "rss",
+    "agents",
+    "mcp",
+    "ai",
+    "content",
+    "research",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "main": "dist/mcp/server.js",
+  "bin": {
+    "quillby-mcp": "bin/quillby-mcp"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "config",
+    "README.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "prebuild": "pnpm --filter @quillby/core --filter @quillby/config --filter @quillby/workspace --filter @quillby/database --filter @quillby/billing --filter @quillby/storage-fs --filter @quillby/storage-db build",
+    "prepare": "pnpm run build",
+    "mcp": "node dist/mcp/server.js",
+    "mcp:dev": "tsx src/mcp/server.ts",
+    "mcp:start": "node dist/mcp/server.js",
+    "mcp:http": "QUILLBY_TRANSPORT=http node dist/mcp/server.js",
+    "mcp:http:dev": "QUILLBY_TRANSPORT=http tsx src/mcp/server.ts",
+    "dev": "tsx src/mcp/server.ts",
+    "clean": "rm -rf .cache dist drizzle coverage",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "build:binaries": "bun build --compile --target=bun-darwin-arm64 ./src/mcp/server.ts --outfile quillby-mcp-macos-arm64 && bun build --compile --target=bun-darwin-x64 ./src/mcp/server.ts --outfile quillby-mcp-macos-x64 && bun build --compile --target=bun-linux-x64 ./src/mcp/server.ts --outfile quillby-mcp-linux-x64 && bun build --compile --target=bun-windows-x64 ./src/mcp/server.ts --outfile quillby-mcp-windows-x64.exe",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "pnpm run build && vitest run tests/integration",
+    "test:all": "pnpm run build && vitest run",
+    "db:push": "drizzle-kit push --config drizzle.config.ts",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "keys": "tsx ../../tooling/scripts/manage-keys.ts",
+    "migrate": "tsx ../../tooling/scripts/migrate-local-to-hosted.ts"
+  },
+  "dependencies": {
+    "@quillby/billing": "workspace:*",
+    "@quillby/config": "workspace:*",
+    "@quillby/core": "workspace:*",
+    "@quillby/database": "workspace:*",
+    "@quillby/storage-db": "workspace:*",
+    "@quillby/storage-fs": "workspace:*",
+    "@quillby/workspace": "workspace:*",
+    "@better-auth/api-key": "^1.5.6",
+    "@better-fetch/fetch": "^1.1.21",
+    "@libsql/client": "^0.17.2",
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
+    "@modelcontextprotocol/sdk": "^1.9.0",
+    "@mozilla/readability": "^0.6.0",
+    "@opentelemetry/api": "^1.9.0",
+    "better-auth": "^1.5.6",
+    "better-call": "^1.3.2",
+    "chalk": "^5.6.2",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
+    "jose": "^6.1.3",
+    "kysely": "^0.28.8",
+    "linkedom": "^0.18.12",
+    "nanostores": "^1.1.0",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.7.2",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.0"
+  }
+}

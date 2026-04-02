@@ -1,0 +1,87 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quillby Local</title>
+    <meta name="description" content="Install Quillby locally and connect it to Claude Desktop or another stdio-capable MCP client." />
+    <style>
+      :root {
+        --bg: #0c0915;
+        --surface: rgba(255,255,255,0.04);
+        --border: rgba(167,139,250,0.14);
+        --violet: #c4b5fd;
+        --text: #f0eafa;
+        --muted: rgba(240,234,250,0.7);
+        --faint: rgba(240,234,250,0.5);
+        --serif: "Fraunces Variable", Georgia, serif;
+        --sans: "Nunito Variable", system-ui, sans-serif;
+        --mono: "DM Mono", monospace;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top, rgba(124,58,237,0.18), transparent 35%), var(--bg); color: var(--text); font-family: var(--sans); }
+      main { max-width: 1120px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+      a { color: inherit; }
+      .back { color: var(--violet); text-decoration: none; font-size: 0.9rem; }
+      .hero { display: grid; gap: 2rem; padding: 2rem 0 3rem; }
+      h1 { font-family: var(--serif); font-size: clamp(3rem, 7vw, 5rem); line-height: 0.98; letter-spacing: -0.03em; margin: 0; }
+      p.lead { max-width: 48rem; font-size: 1.05rem; line-height: 1.8; color: var(--muted); margin: 0; }
+      .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 1.75rem; }
+      .card h2 { margin: 0 0 0.75rem; font-family: var(--serif); font-size: 1.4rem; }
+      .card p, .card li { color: var(--muted); line-height: 1.7; }
+      .code { font-family: var(--mono); background: rgba(17,13,30,0.92); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem; overflow: auto; }
+      ul { padding-left: 1.2rem; }
+      .pill { display: inline-block; margin-bottom: 0.85rem; color: var(--violet); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; }
+      @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="/">← Back to Quillby</a>
+      <section class="hero">
+        <div class="pill">Local mode</div>
+        <h1>Install once. Run inside Claude on your own machine.</h1>
+        <p class="lead">Local is Quillby’s default path. Claude Desktop or another stdio-capable MCP client launches Quillby directly on your computer, with workspace data stored locally and no extra account required.</p>
+      </section>
+      <section class="grid">
+        <article class="card">
+          <h2>Recommended path</h2>
+          <p>Use the installer or script from the public site. That route wires Quillby into Claude Desktop automatically and keeps the setup local-first.</p>
+          <div class="code">curl -fsSL https://raw.githubusercontent.com/vncsleal/quillby/main/install.sh | bash</div>
+          <p>Manual npm setup is also supported:</p>
+          <div class="code">npm install -g @vncsleal/quillby</div>
+        </article>
+        <article class="card">
+          <h2>Where users connect it</h2>
+          <ul>
+            <li>Claude Desktop MCP config</li>
+            <li>Claude Code project MCP config</li>
+            <li>VS Code or Cursor MCP config, if you maintain those surfaces</li>
+          </ul>
+          <p>The local transport is stdio. There is no browser dashboard required for pure local usage.</p>
+        </article>
+        <article class="card">
+          <h2>What happens technically</h2>
+          <ul>
+            <li><strong>Runtime:</strong> <code>apps/mcp-server/bin/quillby-mcp</code></li>
+            <li><strong>Transport:</strong> stdio</li>
+            <li><strong>Storage:</strong> local filesystem under <code>~/.quillby</code></li>
+            <li><strong>Auth:</strong> none</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Next docs to productize</h2>
+          <ul>
+            <li>Dedicated Claude Desktop guide</li>
+            <li>Dedicated Claude Code guide</li>
+            <li>Per-client connector matrix that marks stdio vs hosted HTTP clearly</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

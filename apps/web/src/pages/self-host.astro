@@ -1,0 +1,67 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quillby Self-Host</title>
+    <meta name="description" content="Self-host Quillby with Docker and connect Claude.ai, ChatGPT, or the Quillby dashboard to your own MCP endpoint." />
+    <style>
+      :root { --bg:#0c0915; --surface:rgba(255,255,255,0.04); --border:rgba(167,139,250,0.14); --violet:#c4b5fd; --text:#f0eafa; --muted:rgba(240,234,250,0.7); --serif:"Fraunces Variable", Georgia, serif; --sans:"Nunito Variable", system-ui, sans-serif; --mono:"DM Mono", monospace; }
+      * { box-sizing:border-box; } body { margin:0; min-height:100vh; background:radial-gradient(circle at top, rgba(124,58,237,0.18), transparent 35%), var(--bg); color:var(--text); font-family:var(--sans); }
+      main { max-width:1120px; margin:0 auto; padding:3rem 1.5rem 5rem; } a { color:inherit; } .back { color:var(--violet); text-decoration:none; font-size:0.9rem; }
+      .hero { display:grid; gap:2rem; padding:2rem 0 3rem; } h1 { font-family:var(--serif); font-size:clamp(3rem, 7vw, 5rem); line-height:0.98; letter-spacing:-0.03em; margin:0; }
+      p.lead { max-width:48rem; font-size:1.05rem; line-height:1.8; color:var(--muted); margin:0; }
+      .grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; } .card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:1.75rem; }
+      .card h2 { margin:0 0 0.75rem; font-family:var(--serif); font-size:1.4rem; } .card p, .card li { color:var(--muted); line-height:1.7; }
+      .code { font-family:var(--mono); background:rgba(17,13,30,0.92); border:1px solid var(--border); border-radius:14px; padding:1rem 1.1rem; overflow:auto; }
+      ul { padding-left:1.2rem; } .pill { display:inline-block; margin-bottom:0.85rem; color:var(--violet); font-family:var(--mono); font-size:0.72rem; letter-spacing:0.14em; text-transform:uppercase; }
+      @media (max-width:860px) { .grid { grid-template-columns:1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="/">← Back to Quillby</a>
+      <section class="hero">
+        <div class="pill">Self-hosted mode</div>
+        <h1>Run Quillby on your own infrastructure.</h1>
+        <p class="lead">Self-hosted Quillby is the bring-your-own-infra path. You deploy the HTTP MCP server, own the database and auth secrets, and connect Claude.ai, ChatGPT/OpenAI tooling, or the Quillby dashboard to your endpoint.</p>
+      </section>
+      <section class="grid">
+        <article class="card">
+          <h2>Primary deployment path</h2>
+          <p>Self-host should be Docker-first. The repo already ships the initial path:</p>
+          <div class="code">docker compose -f infra/docker/docker-compose.yml up -d --build</div>
+          <p>This should remain the canonical quick start for most users.</p>
+        </article>
+        <article class="card">
+          <h2>Where users self-host from</h2>
+          <ul>
+            <li>Clone the public monorepo</li>
+            <li>Or use the published container image once it is formalized</li>
+            <li>Deploy <code>apps/mcp-server</code> in HTTP mode</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>How users connect clients</h2>
+          <ul>
+            <li><strong>Claude.ai:</strong> custom connector pointing at <code>https://.../mcp</code></li>
+            <li><strong>OpenAI / ChatGPT:</strong> remote MCP endpoint behind HTTPS</li>
+            <li><strong>Quillby dashboard:</strong> use the self-hosted connect flow in the app</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Operational expectations</h2>
+          <ul>
+            <li>Bring your own libSQL/Turso-compatible DB</li>
+            <li>Persist storage and backups</li>
+            <li>Manage HTTPS, auth secrets, and upgrades</li>
+            <li>Create API keys for remote clients</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
