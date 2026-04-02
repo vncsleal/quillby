@@ -90,8 +90,35 @@ without managing their own server.
 - **Self-hosted mode**: HTTP server + DB-backed storage + auth layer shipped. ✓  
   Users can deploy with `QUILLBY_DB_URL` + `QUILLBY_AUTH_SECRET` and reach a
   working MCP endpoint.
-- **Cloud mode**: infrastructure scaffold in place; billing and onboarding not yet
-  productized.
+- **Cloud mode**: browser sign-in, hosted dashboard, billing hooks, and connector
+  API key management are now implemented. ✓
+- **Monorepo**: repo reorganized into `apps/`, `packages/`, `infra/`, and
+  audience-focused docs. Workspace tooling, root lint/build/typecheck/test, and
+  separated marketing/app surfaces are in place. ✓
+
+### Status Snapshot (2026-04-02)
+
+What is now shipped in the repo:
+
+- `apps/web`: public marketing and mode-selection surface (`/`, `/local`,
+  `/self-host`, `/cloud`) ✓
+- `apps/app`: Vite + React hosted dashboard with:
+  - cloud sign-in/sign-up flow ✓
+  - self-hosted connect flow ✓
+  - workspace switcher ✓
+  - card curation view ✓
+  - draft history ✓
+  - connector/API key management ✓
+- `apps/mcp-server`: shared runtime for local, self-hosted, and cloud ✓
+- extracted shared packages for core/config/workspace/database/billing/storage ✓
+
+What is still not fully productized:
+
+- cloud account lifecycle beyond basic auth
+- self-host operations polish and smoke-tested deployment flows
+- remaining package extraction (`auth`, `content`, `extractors`, `mcp-kit`,
+  `ui-contracts`, `observability`)
+- final docs/CI hardening
 
 ---
 
@@ -234,9 +261,110 @@ Goal: give managed hosted users a native GUI alongside Claude.
 
 Mode: **Cloud** (self-hosted users can run it against their own endpoint)
 
+### v1.6: Cloud Auth + Connector Management ✓
+
+Goal: make the hosted app behave like a real SaaS surface instead of a generic
+remote connector shell.
+
+- cloud-first browser sign-in/sign-up flow in the app ✓
+- self-hosted connection flow split from cloud onboarding ✓
+- app uses session-backed `/api/app/*` endpoints instead of MCP tool calls ✓
+- authenticated connector management UI for creating, listing, and revoking API keys ✓
+- connector setup guidance inside the app for Claude and other hosted MCP clients ✓
+
+Mode: **Cloud** primary, **Self-Hosted** compatible
+
 ---
 
-## Near-Term Follow-Ups (post v1.2)
+## Missing / Next To Implement
+
+These are the highest-value remaining items to make Quillby feel complete and
+operationally credible.
+
+### 1. Cloud Account Lifecycle
+
+Goal: move from “basic auth works” to a complete managed product experience.
+
+- password reset flow
+- email verification / account confirmation
+- account settings page
+- profile/session management
+- post-signup onboarding into first workspace and first connector
+
+Mode: **Cloud**
+
+### 2. Self-Hosted Operations Hardening
+
+Goal: make self-hosting genuinely low-friction for technical users.
+
+- stronger `.env.example` and deployment reference
+- reverse proxy + HTTPS guidance
+- backup / restore documentation
+- upgrade / rollback playbook
+- smoke-tested `docker compose` path in CI
+
+Mode: **Self-Hosted**
+
+### 3. Connector Docs by Client
+
+Goal: make every supported MCP client path explicit instead of burying it in
+general docs.
+
+- Claude Desktop local setup
+- Claude.ai hosted connector setup
+- ChatGPT / OpenAI remote connector setup
+- Cursor / VS Code setup where supported
+- transport/auth matrix: stdio vs HTTP, session vs Bearer key
+
+Mode: **All three**
+
+### 4. Remaining Package Extraction
+
+Goal: finish the monorepo architecture so `apps/mcp-server` becomes a thinner
+composition layer.
+
+- `packages/auth`
+- `packages/content`
+- `packages/extractors`
+- `packages/mcp-kit`
+- `packages/ui-contracts`
+- optional `packages/observability`
+
+Mode: **All three**
+
+### 5. CI and Operational Compliance
+
+Goal: move from local validation to repeatable repo guarantees.
+
+- general CI workflow for lint/build/typecheck/test
+- self-host smoke test workflow
+- release verification across app/web/server outputs
+- optional container/image validation
+
+Mode: **All three**
+
+### 6. Documentation Rewrite Around Final Architecture
+
+Goal: make docs match the actual product and repository shape.
+
+- rewrite `README.md` around Local / Self-Hosted / Cloud
+- move architecture details into `docs/architecture`
+- move deploy/runbook material into `docs/operations`
+- publish explicit deployment and connector matrices
+
+Mode: **All three**
+
+---
+
+## Near-Term Follow-Ups
+
+Priority order recommended from the current codebase:
+
+1. Cloud account lifecycle and onboarding
+2. Self-host deployment hardening and smoke tests
+3. Remaining package extraction
+4. Connector docs by client
+5. Final CI/docs pass
 
 1. Explicit schema versions and DDL migrations with version table.
 2. Atomic writes and file locking for local mode workspace state.
